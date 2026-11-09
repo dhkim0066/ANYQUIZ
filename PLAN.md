@@ -1,0 +1,100 @@
+# ANYQUIZ 로드맵
+
+상태 표기: `[x]` 완료, `[ ]` 예정, `[~]` 진행 중. 단계를 넘어갈 때 이 파일을 갱신한다.
+
+## 왜 스킬인가 (플러그인이 아니라)
+
+- 사용자(교사·학원·수험생)는 claude.ai 앱을 쓴다. claude.ai는 스킬(zip)은 받지만 플러그인은 받지 않는다.
+- 훅·MCP·별도 서브에이전트가 필요한 기능이 없다. `scripts/`, `references/`, `assets/`로 충분하다.
+- 같은 폴더가 Claude Code, claude.ai, Codex CLI에서 동작한다.
+- 스킬은 사용자 계정 안에서 돌아가므로 기존 로컬 웹페이지와 달리 API 키 배포가 필요 없다.
+
+## 0단계. 범위 고정 `[x]`
+
+- 과목: 영어. 유형: cloze / vocab / reading. 모드: format / passage / vocab
+- 입력: 텍스트 PDF, 텍스트. 스캔 PDF 제외
+- 출력: 마크다운 + DOCX(요청 시)
+- 확정된 설계 결정은 `CLAUDE.md` 참고
+
+## 1단계. 스킬 v0.1 `[x]` (여기까지 claude.ai 세션에서 작성)
+
+- `skills/anyquiz-english/SKILL.md` 3단계 절차
+- `references/schema.md`, `question-types.md`, `subject-english.md`
+- `scripts/extract.py`, `validate_schema.py`, `overlap.py`, `export_docx.py`, `exam.schema.json`
+- `assets/exam-template.docx`
+- `eval/samples/`로 스크립트 회귀 확인 완료
+
+## 2단계. 실제 호출과 실패 목록 `[ ]` (Claude Code에서)
+
+- [ ] `.claude/skills/`에 심볼릭 링크 후 `/anyquiz-english` 호출 확인
+- [ ] 문제지 5장으로 format 모드 실행. 매번 다음을 기록 → `eval/results/round-00.md`
+  - 분석 표가 맞았는가 (유형·수준·문항 수)
+  - 생성물이 스키마를 통과했는가
+  - 정답이 맞았는가 (직접 풀어서)
+  - 어디서 틀렸는가 (유형별로)
+- [ ] passage 모드 3회, vocab 모드 3회 동일하게
+- [ ] 실패 유형을 빈도순으로 정리. 이것이 4단계의 입력
+- [ ] 발견한 "나쁜 예"를 `question-types.md`에 추가
+
+알려진 미완성:
+- `multi-blank`, `word-bank`, `synonym-match`, `definition-match`의 예시가 없다. 실제 원본에서 그 유형이 나올 때 채운다.
+- `extract.py`는 2단 편집 PDF에서 열 순서가 섞일 수 있다. 수능형 2단 문제지가 나오면 `pdfplumber`의 `extract_words` + x좌표 분할로 보강.
+
+## 3단계. 평가 세트 `[ ]`
+
+- [ ] `eval/sources/`에 원본 문제지 20~30장 (유형·수준 고르게). 파일명 `NN-<level>-<types>.pdf`
+- [ ] 각 원본에 대해 분석 정답 JSON 수작업 작성 → `eval/sources/NN.expected.json` (분석 단계 채점용)
+- [ ] 루브릭 작성 → `eval/rubrics/content-similarity.md` (1~5점, 같은 단원·난이도·모호성)
+- [ ] 배치 실행 스크립트 → `eval/run.sh`: 원본마다 `claude -p`로 5회 생성, `validate_schema.py --compare`와 `overlap.py` 자동 실행, 결과를 `eval/results/round-NN/`에 저장
+- [ ] LLM 채점 스크립트 → `eval/judge.sh`: 루브릭으로 내용 충실도 채점 (생성물만 보고, 원본·생성 과정은 보지 않게)
+- [ ] 기준선 측정 → `eval/results/baseline.md`
+
+`claude -p` 배치 예시(D편 참고):
+```
+claude -p "eval/sources/03.pdf를 format 모드로, 같은 문항 수로 생성해 JSON만 출력" \
+  --allowedTools "Read,Bash(python3 *)" --max-turns 20 --max-budget-usd 1.00 \
+  --output-format json > eval/results/round-01/03-run1.json
+```
+
+## 4단계. 반복 개선 `[ ]`
+
+라운드마다: 실패 사례 분류 → 가장 많은 유형 하나 고치기 → 전체 재측정 → `eval/results/round-NN.md`에 기록.
+
+고치는 수단 (효과 순):
+1. `question-types.md`에 나쁜 예 + 고친 예 추가
+2. 스키마 필드 추가 (예: 보기 길이 균형이 깨지면 `option_length_balance`)
+3. 검증 단계 강화 (오답 보기마다 이유 쓰기 등)
+4. SKILL.md 절차 수정 (마지막 수단. 절차가 자주 바뀌면 설계가 틀린 것)
+
+종료 조건 (pass^5 기준):
+- 형식 충실도 100%
+- 정답 정확성 95% 이상
+- 내용 충실도 평균 4.0 이상
+- 중복률 15% 미만 문항 100%
+
+## 5단계. 공개 `[ ]`
+
+- [ ] `skills-ref validate skills/anyquiz-english` (agentskills.io 참조 구현)
+- [ ] README에 지원 범위·알려진 한계·저작권 안내
+- [ ] 세 곳 설치 테스트: claude.ai(zip 업로드), Claude Code(`.claude/skills/`), Codex CLI(`.agents/skills/`)
+- [ ] GitHub 릴리스 태그 `v1.0.0`
+
+## 6단계. 플러그인 승격 `[ ]` (조건부)
+
+다음 중 하나가 필요해지면 `.claude-plugin/plugin.json`으로 감싼다. 스킬 폴더는 그대로 `skills/` 아래 유지.
+
+- 검증을 별도 서브에이전트(`agents/verifier.md`, model: haiku)로 분리해 비용 절감
+- `/anyquiz --count 20 --mode format` 같은 옵션 있는 명령
+- 정답 키 없는 출력을 훅으로 차단
+- Claude Code 마켓플레이스 배포 (`.claude-plugin/marketplace.json`)
+
+## 일정 감각
+
+| 단계 | 기간 |
+| :- | :- |
+| 2 | 1~2일 |
+| 3 | 3~4일 |
+| 4 | 2~3주 |
+| 5 | 2~3일 |
+
+4단계 길이는 3단계 평가 세트의 품질에 달려 있다. 평가 세트를 대충 만들면 4단계가 끝나지 않는다.

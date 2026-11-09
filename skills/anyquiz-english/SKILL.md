@@ -1,0 +1,124 @@
+---
+name: anyquiz-english
+description: 영어 문제지(텍스트 PDF 또는 텍스트)를 분석해 같은 형식의 새 문제를 만들거나, 주어진 영어 지문으로 문제를 만듭니다. 영단어 빈칸 문제(vocabulary cloze), 영어 단어집(vocabulary list), 영어 독해 문제(reading comprehension)를 지원합니다. 사용자가 영어 문제 생성, 문제지 변형, 유사 문제, 빈칸 문제, 단어장 만들기, 독해 문제 출제, English quiz, worksheet, exam generation을 언급할 때 사용합니다.
+license: MIT
+compatibility: Designed for Claude Code, claude.ai, and other Agent Skills clients. PDF input requires Python 3 with pdfplumber (scripts/extract.py).
+metadata:
+  author: donghyun
+  version: "0.1.0"
+  subject: english
+---
+
+# AnyQuiz English
+
+영어 문제지를 입력받아 **같은 형식·같은 수준의 새 문제**를 만들거나, 영어 지문을 입력받아 **그 지문 기반 문제**를 만드는 스킬입니다. 결과는 문제지와 정답·해설이 분리된 마크다운이며, 요청 시 DOCX로 내보냅니다.
+
+## 지원 범위
+
+| 구분 | 값 |
+| :- | :- |
+| 과목 | 영어 |
+| 입력 | 텍스트 기반 PDF, 붙여넣은 텍스트, .txt/.md |
+| 문제 유형 | `cloze`(영단어 빈칸), `vocab`(단어집), `reading`(독해) |
+| 모드 | `format`(형식 모사), `passage`(본문 기반) |
+| 출력 | 마크다운(기본), DOCX(요청 시) |
+
+스캔 이미지 PDF, 영어 외 과목, 듣기 문제는 지원하지 않습니다. 해당 입력이 오면 그렇게 말하고 멈춥니다.
+
+## 시작 전 확인
+
+다음 중 사용자가 말하지 않은 것만 **한 번에** 묻습니다. 이미 입력에서 알 수 있으면 묻지 않습니다.
+
+1. 모드: 올린 문제지와 같은 형식으로(`format`) / 올린 지문으로 문제를(`passage`) / 단어집만(`vocab`)
+2. 문항 수 (기본값: 원본과 동일, `passage` 모드는 5문항, 단어집은 20개)
+3. 수준 (기본값: 원본에서 추정. 없으면 고등학교 수준)
+4. 발문·해설 언어: `format` 모드는 **원본을 따르므로 묻지 않습니다.** `passage` 모드와 단어집만 생성할 때는 한국어/영어를 묻습니다. 보기 번호는 한국어면 ①②③④⑤, 영어면 A B C D E.
+5. 출력: 마크다운만 / DOCX도
+
+단어집은 두 가지 입력을 받습니다. 지문이나 문제지가 있으면 **거기서 수준에 맞는 단어를 추출**하고, 입력 없이 "B1 환경 주제 30개"처럼 요청하면 **새로 생성**합니다.
+
+`format` 모드의 새 지문은 기본적으로 **원본과 같은 소재, 다른 내용**입니다. 사용자가 다른 소재를 원하면 그렇게 합니다. `passage` 모드에서는 사용자가 올린 지문을 결과 문제지에 그대로 싣습니다.
+
+## 절차
+
+반드시 이 순서로 진행합니다. 분석과 생성을 한 번에 하지 않습니다. 한 번에 하면 형식·내용·정답이 동시에 흔들립니다.
+
+### 1. 입력 처리
+
+- PDF면 `scripts/extract.py <file.pdf>`를 실행해 텍스트를 얻습니다. 출력이 거의 비어 있으면 스캔 PDF이므로 지원하지 않는다고 알립니다.
+- 텍스트가 2,000단어를 넘으면 문항 단위로 나누어 처리합니다.
+
+### 2. 분석 → `exam.json`
+
+원본을 읽고 `references/schema.md`의 스키마대로 JSON을 만듭니다. 문항마다 다음을 채웁니다.
+
+- `type`: cloze / vocab / reading
+- `subtype`: 유형 세부 (예: reading의 `main-idea`, `blank-inference`, `title`, `order`, `insertion`, `detail`)
+- `level`: CEFR 추정 (A2~C1)과 근거 (문장 평균 길이, 어휘 빈도)
+- `passage_words`: 지문 단어 수
+- `options`: 보기 수, 보기 평균 길이
+- `topic_tags`: 소재 태그 2~4개
+- `points`: 배점
+- 최상위 `language`: 발문·해설 언어 (`ko` / `en`). 원본 발문이 한국어면 `ko`.
+
+`passage` 모드에서는 원본 문제지가 없으므로 사용자가 지정한 문항 수·유형으로 스키마를 직접 구성합니다.
+
+분석 결과를 사용자에게 **표 한 개로 요약**해 보여 주고 확인을 받습니다. 여기서 틀리면 뒤가 전부 틀립니다.
+
+### 3. 생성
+
+`exam.json`을 **제약 조건**으로 삼아 새 문항을 만듭니다. 규칙은 두 파일에 있습니다.
+
+- `references/question-types.md`: 유형별 작성 규칙, 좋은 예와 나쁜 예
+- `references/subject-english.md`: 영어 과목 규칙 (어휘 수준 맞추기, 지문 작성, 오답 보기 설계)
+
+생성할 때 지키는 것:
+
+- `format` 모드에서 원본 지문·문장은 **보지 않은 것처럼** 새로 씁니다. 소재(topic_tags)와 수준만 가져옵니다.
+- `passage` 모드에서는 지문을 그대로 쓰되, 문제 문장과 보기는 새로 씁니다.
+- 객관식은 보기 길이를 비슷하게 맞춥니다. 정답만 길거나 짧으면 안 됩니다.
+- 모든 문항에 정답과 **두 문장 이내의 해설**을 붙입니다. 객관식은 오답 보기마다 왜 틀린지 한 구절씩 적습니다. 이 과정에서 복수 정답이 드러나면 그 문항을 다시 만듭니다.
+
+### 4. 검증
+
+생성된 문항을 **원본과 생성 과정을 참고하지 않고** 다시 풉니다. 정답 키와 다르면 그 문항을 다시 만듭니다. 그다음 스크립트를 돌립니다.
+
+```
+python3 scripts/validate_schema.py generated.json     # 스키마·문항 수·보기 수
+python3 scripts/overlap.py source.txt generated.json   # 원문 중복률 (format 모드만)
+```
+
+- 스키마 실패: 해당 문항 수정
+- 중복률 15% 초과: 해당 문항의 지문 재작성
+
+검증을 통과하지 못한 문항을 그대로 내보내지 않습니다.
+
+### 5. 출력
+
+마크다운 두 섹션으로 냅니다.
+
+```
+# [제목] — 문제지
+(문항)
+
+# [제목] — 정답 및 해설
+(번호, 정답, 해설, 오답 이유)
+```
+
+DOCX 요청 시 `scripts/export_docx.py generated.json out.docx`를 실행하고 파일을 전달합니다.
+
+마지막에 **분석 요약(2단계 표)과 검증 결과(통과 문항 수, 중복률)**를 세 줄로 덧붙입니다. 사용자가 품질을 판단할 근거입니다.
+
+## 하지 않는 것
+
+- 원본 문장을 그대로 또는 단어 몇 개만 바꿔 재사용하는 것
+- 정답 근거가 지문에 없는 독해 문항
+- 빈칸 문항에서 문맥 없이도 풀리는 문항 (단어 뜻만 알면 되는 것은 `vocab`으로 분류)
+- 검증 없이 내보내는 것
+
+## 파일 참조
+
+- 스키마: `references/schema.md`
+- 유형별 규칙과 예시: `references/question-types.md`
+- 영어 과목 규칙: `references/subject-english.md`
+- DOCX 템플릿: `assets/exam-template.docx`
