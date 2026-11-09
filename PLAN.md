@@ -42,8 +42,12 @@
 
 ## 3단계. 평가 세트 `[ ]`
 
-- [ ] `eval/sources/`에 원본 문제지 20~30장 (유형·수준 고르게). 파일명 `NN-<level>-<types>.pdf`
-- [ ] 각 원본에 대해 분석 정답 JSON 수작업 작성 → `eval/sources/NN.expected.json` (분석 단계 채점용)
+- [ ] `eval/sources/`에 **직접 제작한** 문제지 10~15장. 파일명 `NN-<level>-<types>.pdf`
+  - 유형·수준·스타일을 섞는다: 수능형(5지선다, 한국어 발문), 내신형(서술형 포함), 토익형(4지선다, 영어 발문) 중 둘 이상
+  - 최소 3~4장은 일부러 지저분하게: 2단 편집, 머리글(학교명·과목), 꼬리글(쪽 번호), 배점 표기 위치 변화. 깨끗한 문제지만 있으면 extract.py의 실패가 평가에서 안 잡힌다
+  - Claude에게 만들게 하지 않는다. 생성기로 평가 세트를 만들면 생성기 편향이 기준에 들어간다
+  - 이 세트는 저장소에 커밋된다. 누구나 재현할 수 있는 회귀 테스트가 목적이다
+- [ ] 각 문제지에 대해 분석 정답 JSON 수작업 작성 → `eval/sources/NN.expected.json` (분석 단계 채점용)
 - [ ] 루브릭 작성 → `eval/rubrics/content-similarity.md` (1~5점, 같은 단원·난이도·모호성)
 - [ ] 배치 실행 스크립트 → `eval/run.sh`: 원본마다 `claude -p`로 5회 생성, `validate_schema.py --compare`와 `overlap.py` 자동 실행, 결과를 `eval/results/round-NN/`에 저장
 - [ ] LLM 채점 스크립트 → `eval/judge.sh`: 루브릭으로 내용 충실도 채점 (생성물만 보고, 원본·생성 과정은 보지 않게)
@@ -86,7 +90,7 @@ claude -p "eval/sources/03.pdf를 format 모드로, 같은 문항 수로 생성�
 ## 5단계. 공개 `[ ]`
 
 - [ ] `skills-ref validate skills/anyquiz-english` (agentskills.io 참조 구현)
-- [ ] README에 지원 범위·알려진 한계·저작권 안내
+- [ ] README에 지원 범위·알려진 한계·이용 안내
 - [ ] 세 곳 설치 테스트: claude.ai(zip 업로드), Claude Code(`.claude/skills/`), Codex CLI(`.agents/skills/`)
 - [ ] **낯선 사람 테스트**: 이 프로젝트를 모르는 사람 1명이 README만 보고 설치해 문제지 한 장을 뽑는다. 실패하면 숫자가 좋아도 공개하지 않는다
 - [ ] GitHub 릴리스 태그 `v1.0.0`

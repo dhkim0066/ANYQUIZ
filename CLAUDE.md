@@ -34,7 +34,7 @@
 
 - 스킬 파일을 고친 뒤에는 반드시 `/anyquiz-english`로 실제 호출해 본다. 파일만 보고 판단하지 않는다.
 - `references/question-types.md`의 "나쁜 예"는 실제 실패 사례에서만 추가한다. 상상해서 쓰지 않는다.
-- 평가 세트(`eval/sources/`)의 원본 문제지는 사용자가 제공한다. 임의로 만들지 않는다.
+- 평가 세트(`eval/sources/`)의 문제지는 사용자가 직접 만들어 제공한다. Claude가 만들지 않는다(생성기 편향이 기준에 들어간다).
 - `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx).
 - 스크립트 수정 후 `eval/samples/`로 회귀 확인:
   ```
