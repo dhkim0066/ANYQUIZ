@@ -43,6 +43,16 @@
   ```
 - 커밋 메시지는 한국어, 한 줄 요약 + 필요 시 본문.
 
+## 이 저장소의 훅 (`.claude/settings.json`)
+
+| 훅 | 하는 일 |
+| :- | :- |
+| PreToolUse Edit\|Write | `eval/sources/` 수정 차단. 기준 데이터는 사람만 고친다 |
+| PostToolUse Edit\|Write | 스킬 파일이 바뀌면 `agentskills validate` + 스크립트 컴파일 + 샘플 회귀. 실패하면 되돌아옴 |
+| Stop | 스킬이 바뀌었는데 `eval/results/`에 기록이 없으면 알림 |
+
+훅이 거부하면 우회하지 말고 원인을 고친다. 훅 자체를 고쳐야 하면 사용자에게 먼저 말한다.
+
 ## 로컬에서 스킬 쓰기
 
 ```
