@@ -55,7 +55,7 @@ cp -r ANYQUIZ/skills/anyquiz-english .agents/skills/
 ## 스크립트 (Python 3)
 
 ```bash
-pip install pdfplumber pypdf jsonschema python-docx
+pip install pdfplumber pypdf jsonschema python-docx skills-ref
 python3 scripts/extract.py exam.pdf out.txt
 python3 scripts/validate_schema.py generated.json
 python3 scripts/validate_schema.py --compare source.json generated.json
