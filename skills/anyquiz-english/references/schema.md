@@ -73,6 +73,7 @@
 | `vocab` | `word-list` | 단어·품사·뜻·예문 표 |
 | `vocab` | `synonym-match` | 유의어 짝짓기 |
 | `vocab` | `definition-match` | 영영 뜻풀이 짝짓기 |
+| `vocab` | `meaning-write` | 단어의 문맥상 우리말 뜻 쓰기 (주관식). 내신 어휘 영역의 기본형 |
 | `reading` | `main-idea` | 요지·주제 |
 | `reading` | `title` | 제목 |
 | `reading` | `blank-inference` | 빈칸 추론 (지문 안 빈칸) |
@@ -81,6 +82,9 @@
 | `reading` | `insertion` | 문장 삽입 |
 | `reading` | `irrelevant` | 흐름과 무관한 문장 |
 | `reading` | `summary` | 요약문 빈칸 |
+| `reading` | `reference` | 밑줄 친 대명사·표현이 가리키는 것 (지칭 추론) |
+| `reading` | `implied-meaning` | 밑줄 친 문장·표현에 담긴 의미 (함축 의미) |
+| `reading` | `inference` | 글을 바탕으로 한 추론: 이유, 인물의 생각, 다음에 일어날 일 등 |
 
 새 subtype이 필요하면 이 표에 먼저 추가하고 `question-types.md`에 규칙을 씁니다.
 

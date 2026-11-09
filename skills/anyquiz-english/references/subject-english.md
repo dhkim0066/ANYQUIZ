@@ -82,6 +82,10 @@ cloze 오답은 **같은 품사 + 의미장이 인접한 단어**로 만듭니�
 | insertion | 글의 흐름으로 보아, 주어진 문장이 들어가기에 가장 적절한 곳은? |
 | irrelevant | 다음 글에서 전체 흐름과 관계 없는 문장은? |
 | summary | 다음 글의 내용을 한 문장으로 요약하고자 한다. 빈칸 (A), (B)에 들어갈 말로 가장 적절한 것은? |
+| reference | 밑줄 친 ⓐ가 가리키는 것은? |
+| implied-meaning | 밑줄 친 부분에 담긴 의미로 가장 적절한 것은? |
+| inference | 윗글을 바탕으로 추론할 수 있는 것은? / ~한 이유로 가장 적절한 것은? |
+| meaning-write | 다음 단어의 문맥상 우리말 뜻을 쓰시오. |
 | cloze single | 다음 빈칸에 들어갈 말로 가장 적절한 것은? |
 | cloze multi | (A), (B), (C)의 각 네모 안에서 문맥에 맞는 낱말로 가장 적절한 것은? |
 
@@ -97,6 +101,10 @@ cloze 오답은 **같은 품사 + 의미장이 인접한 단어**로 만듭니�
 | insertion | Where would the following sentence best fit? |
 | irrelevant | Which sentence does NOT fit the flow of the passage? |
 | summary | Choose the best words for (A) and (B) to complete the summary. |
+| reference | What does the underlined ⓐ refer to? |
+| implied-meaning | What does the underlined part mean? |
+| inference | What can be inferred from the passage? / Why did ...? |
+| meaning-write | Write the Korean meaning of each word as used in the passage. |
 | cloze single | Choose the word that best completes the sentence. |
 
 보기 번호: `ko`는 ①②③④⑤, `en`은 (A)(B)(C)(D)(E).
