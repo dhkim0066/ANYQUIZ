@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .claude/settings.local.json
+.claude/skills/
 eval/results/round-*/
 *.docx
 !skills/anyquiz-english/assets/exam-template.docx

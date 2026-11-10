@@ -62,6 +62,8 @@ mkdir -p .claude/skills
 ln -s ../../skills/anyquiz-english .claude/skills/anyquiz-english
 ```
 
+Windows Git Bash의 `ln -s`는 복사본을 만든다. 대신 `cmd /c "mklink /J .claude\skills\anyquiz-english skills\anyquiz-english"`.
+
 이후 세션에서 `/anyquiz-english` 또는 "이 문제지와 비슷한 문제 만들어 줘"로 호출.
 
 ## 하지 않는 것

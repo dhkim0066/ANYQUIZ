@@ -24,10 +24,10 @@
 - `assets/exam-template.docx`
 - `eval/samples/`로 스크립트 회귀 확인 완료
 
-## 2단계. 실제 호출과 실패 목록 `[ ]` (Claude Code에서)
+## 2단계. 실제 호출과 실패 목록 `[~]` (Claude Code에서)
 
-- [ ] `.claude/skills/`에 심볼릭 링크 후 `/anyquiz-english` 호출 확인
-- [ ] 문제지 5장으로 format 모드 실행. 매번 다음을 기록 → `eval/results/round-00.md`
+- [x] `.claude/skills/`에 심볼릭 링크 후 `/anyquiz-english` 호출 확인 (Windows는 `mklink /J` 정션. `eval/results/round-00.md`)
+- [~] 문제지 5장으로 format 모드 실행. 매번 다음을 기록 → `eval/results/round-00.md` (01, 02 완료. 2026-11-09)
   - 분석 표가 맞았는가 (유형·수준·문항 수)
   - 생성물이 스키마를 통과했는가
   - 정답이 맞았는가 (직접 풀어서)
