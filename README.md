@@ -60,6 +60,7 @@ python3 scripts/extract.py exam.pdf out.txt
 python3 scripts/validate_schema.py generated.json
 python3 scripts/validate_schema.py --compare source.json generated.json
 python3 scripts/overlap.py source.txt generated.json
+python3 scripts/render_md.py generated.json out.md
 python3 scripts/export_docx.py generated.json out.docx
 ```
 

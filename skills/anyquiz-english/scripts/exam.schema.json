@@ -6,6 +6,7 @@
     "title",
     "mode",
     "language",
+    "option_marker",
     "source_level",
     "items"
   ],
@@ -26,6 +27,13 @@
       "enum": [
         "ko",
         "en"
+      ]
+    },
+    "option_marker": {
+      "enum": [
+        "circled",
+        "letter",
+        "number"
       ]
     },
     "source_level": {
@@ -128,6 +136,10 @@
         "passage_words": {
           "type": "integer",
           "minimum": 0
+        },
+        "passage_group": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
         },
         "stem": {
           "type": "string",

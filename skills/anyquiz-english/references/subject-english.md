@@ -107,7 +107,7 @@ cloze 오답은 **같은 품사 + 의미장이 인접한 단어**로 만듭니�
 | meaning-write | Write the Korean meaning of each word as used in the passage. |
 | cloze single | Choose the word that best completes the sentence. |
 
-보기 번호: `ko`는 ①②③④⑤, `en`은 (A)(B)(C)(D)(E).
+보기 번호 표기는 발문 언어로 정하지 않습니다. 원본 표기(`option_marker`)를 따릅니다. 한국 학교 시험지는 영어 발문에 ①②③④를 쓰는 경우가 흔합니다.
 
 ## 6. 자주 나는 실수 (검증 단계에서 확인)
 

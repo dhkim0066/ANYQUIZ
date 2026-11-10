@@ -14,8 +14,11 @@ from pathlib import Path
 HERE = Path(__file__).parent
 TEMPLATE = HERE.parent / "assets" / "exam-template.docx"
 
-KO_NUM = ["①", "②", "③", "④", "⑤"]
-EN_NUM = ["(A)", "(B)", "(C)", "(D)", "(E)"]
+MARKERS = {
+    "circled": ["①", "②", "③", "④", "⑤"],
+    "letter": ["(A)", "(B)", "(C)", "(D)", "(E)"],
+    "number": ["(1)", "(2)", "(3)", "(4)", "(5)"],
+}
 
 
 def main() -> int:
@@ -30,17 +33,20 @@ def main() -> int:
         return 1
 
     exam = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    nums = KO_NUM if exam["language"] == "ko" else EN_NUM
+    nums = MARKERS[exam.get("option_marker", "circled")]
     doc = Document(str(TEMPLATE)) if TEMPLATE.exists() else Document()
 
     # 문제지
     doc.add_heading(exam["title"], level=1)
+    seen_groups: set[str] = set()
     for it in exam["items"]:
         doc.add_paragraph(f"{it['id']}. {it['stem']}  [{it['points']}점]" if exam["language"] == "ko"
                           else f"{it['id']}. {it['stem']}  [{it['points']} pts]")
-        if it.get("passage"):
-            p = doc.add_paragraph(it["passage"])
-            p.paragraph_format.left_indent = p.paragraph_format.left_indent or 0
+        g = it.get("passage_group")
+        if it.get("passage") and not (g and g in seen_groups):
+            doc.add_paragraph(it["passage"])
+        if g:
+            seen_groups.add(g)
         if it.get("options"):
             for i, o in enumerate(it["options"]):
                 doc.add_paragraph(f"{nums[i]} {o}")

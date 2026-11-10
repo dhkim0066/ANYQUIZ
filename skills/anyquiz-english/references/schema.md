@@ -11,6 +11,7 @@
   "title": "2학년 1학기 중간고사 영어",
   "mode": "format",
   "language": "ko",
+  "option_marker": "circled",
   "source_level": "B1",
   "total_points": 100,
   "items": [ ... ]
@@ -21,7 +22,8 @@
 | :- | :- | :- | :- |
 | `title` | string | 예 | 문제지 제목 |
 | `mode` | `format` \| `passage` \| `vocab` | 예 | 생성 모드 |
-| `language` | `ko` \| `en` | 예 | 발문·해설 언어. 보기 번호 표기도 이에 따름 (ko: ①②③④⑤, en: A B C D E) |
+| `language` | `ko` \| `en` | 예 | 발문·해설 언어. 보기 번호 표기와는 무관 |
+| `option_marker` | `circled` \| `letter` \| `number` | 예 | 보기 번호 표기. `circled` ①②③, `letter` (A)(B)(C), `number` (1)(2)(3). `format` 모드는 **원본 표기 그대로**. 원본이 없으면 사용자 지정, 없으면 `circled` |
 | `source_level` | `A1`~`C2` | 예 | 전체 수준 (CEFR) |
 | `total_points` | number | 아니오 | 총점. 없으면 문항 배점 합 |
 | `items` | array | 예 | 문항 배열. 1개 이상 |
@@ -56,6 +58,7 @@
 | `topic_tags` | string[] | 예 | 소재 태그 2~4개, 영어 소문자 |
 | `passage` | string | reading·cloze는 예 | 지문. vocab은 생략 가능 |
 | `passage_words` | integer | passage 있으면 예 | 지문 단어 수 |
+| `passage_group` | string | 아니오 | 지문 하나에 문항이 여러 개 딸릴 때의 묶음 이름(예: `"g1"`). 같은 묶음의 문항은 `passage`가 완전히 같아야 하고 서로 이어진 번호여야 함. 출력할 때 지문은 묶음 첫 문항 앞에 한 번만 나옴 |
 | `stem` | string | 예 | 발문 |
 | `options` | string[] | 객관식은 예 | 보기. 4개 또는 5개 |
 | `answer` | integer \| string | 예 | 객관식은 보기 인덱스(0부터), 주관식은 정답 문자열 |
@@ -115,6 +118,8 @@
 | 항목 | 기준 |
 | :- | :- |
 | `items` 길이 | 동일 |
+| `option_marker` | 동일 |
+| `passage_group` 묶음 구조 | 동일 (어느 문항끼리 지문을 공유하는지) |
 | 각 문항의 `type`, `subtype` | 동일 (순서 포함) |
 | 각 문항의 `options` 길이 | 동일 |
 | 각 문항의 `points` | 동일 |

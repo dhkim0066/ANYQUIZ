@@ -1,0 +1,41 @@
+{
+  "title": "Sample Worksheet (script regression)",
+  "mode": "format",
+  "language": "en",
+  "option_marker": "circled",
+  "source_level": "B1",
+  "items": [
+    {
+      "id": 1, "type": "reading", "subtype": "title", "level": "B1", "points": 12,
+      "topic_tags": ["school", "garden"], "passage_group": "g1",
+      "passage": "The science club wanted to grow vegetables behind the gym, but the soil there was hard and dry. Instead of giving up, the members collected fallen leaves and kitchen scraps for two months. They mixed this material into the ground before planting. ⓐThis preparation took longer than the planting itself, yet the first lettuce appeared within weeks.",
+      "passage_words": 58,
+      "stem": "Which title best fits the passage?",
+      "options": ["Preparing the Ground Before Planting", "Why Gyms Need Larger Gardens", "Cooking With Vegetables at School", "Collecting Leaves for an Art Project"],
+      "answer": 0,
+      "explanation": "The passage is about improving the soil before planting.",
+      "distractor_notes": ["② not mentioned", "③ not mentioned", "④ partial detail used for a different purpose"]
+    },
+    {
+      "id": 2, "type": "reading", "subtype": "reference", "level": "B1", "points": 12,
+      "topic_tags": ["school", "garden"], "passage_group": "g1",
+      "passage": "The science club wanted to grow vegetables behind the gym, but the soil there was hard and dry. Instead of giving up, the members collected fallen leaves and kitchen scraps for two months. They mixed this material into the ground before planting. ⓐThis preparation took longer than the planting itself, yet the first lettuce appeared within weeks.",
+      "passage_words": 58,
+      "stem": "What does the underlined ⓐThis preparation refer to?",
+      "options": ["Building a fence behind the gym", "Mixing leaves and scraps into the soil", "Buying lettuce seeds from a store", "Watering the garden every morning"],
+      "answer": 1,
+      "explanation": "It points to the previous sentence: mixing the collected material into the ground.",
+      "distractor_notes": ["① not mentioned", "③ not mentioned", "④ not mentioned"]
+    },
+    {
+      "id": 3, "type": "vocab", "subtype": "meaning-write", "level": "B1", "points": 4,
+      "topic_tags": ["garden"],
+      "stem": "Write the Korean meaning of each word as used in the passage.",
+      "answer": "see table", "explanation": "Meanings that fit the context are accepted.",
+      "vocab_entries": [
+        {"word": "collect", "pos": "v.", "meaning_ko": "모으다", "example": "We collect empty bottles every Friday after lunch."},
+        {"word": "appear", "pos": "v.", "meaning_ko": "나타나다", "example": "The first stars appear soon after the sun sets."}
+      ]
+    }
+  ]
+}

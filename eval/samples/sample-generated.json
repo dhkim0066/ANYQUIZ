@@ -2,6 +2,7 @@
   "title": "샘플 영어 문제지 (스크립트 검증용)",
   "mode": "format",
   "language": "ko",
+  "option_marker": "circled",
   "source_level": "B1",
   "items": [
     {
@@ -10,7 +11,10 @@
       "subtype": "main-idea",
       "level": "B1",
       "points": 2,
-      "topic_tags": ["environment", "recycling"],
+      "topic_tags": [
+        "environment",
+        "recycling"
+      ],
       "passage": "Many cities have introduced recycling programs, but simply placing bins on street corners does not guarantee results. Residents often do not know which materials are accepted, and contaminated loads end up in landfills anyway. Programs that succeed share one feature: they explain the rules clearly and repeat them often, through signs, school lessons, and local media. In other words, recycling works when people understand it, not merely when the equipment is available.",
       "passage_words": 76,
       "stem": "다음 글의 요지로 가장 적절한 것은?",
@@ -23,7 +27,12 @@
       ],
       "answer": 1,
       "explanation": "마지막 문장 'recycling works when people understand it'이 요지. 성공한 프로그램의 공통점이 규칙을 명확히 설명하는 것이라고 했다.",
-      "distractor_notes": ["①은 지문과 반대(시설만으로는 부족)", "③은 부분 정보", "④는 언급 없음", "⑤는 범위 초과"]
+      "distractor_notes": [
+        "①은 지문과 반대(시설만으로는 부족)",
+        "③은 부분 정보",
+        "④는 언급 없음",
+        "⑤는 범위 초과"
+      ]
     },
     {
       "id": 2,
@@ -31,14 +40,28 @@
       "subtype": "single-blank",
       "level": "B1",
       "points": 2,
-      "topic_tags": ["policy", "traffic"],
+      "topic_tags": [
+        "policy",
+        "traffic"
+      ],
       "passage": "Although the new policy was designed to reduce traffic, it had the ____ effect: more cars appeared downtown than before.",
       "passage_words": 21,
       "stem": "다음 빈칸에 들어갈 말로 가장 적절한 것은?",
-      "options": ["intended", "opposite", "gradual", "similar", "temporary"],
+      "options": [
+        "intended",
+        "opposite",
+        "gradual",
+        "similar",
+        "temporary"
+      ],
       "answer": 1,
       "explanation": "'designed to reduce'와 'more cars than before'의 대조가 단서.",
-      "distractor_notes": ["①은 의미 반대", "③은 대조 단서와 무관", "④는 결과와 모순", "⑤는 시간 단서 없음"]
+      "distractor_notes": [
+        "①은 의미 반대",
+        "③은 대조 단서와 무관",
+        "④는 결과와 모순",
+        "⑤는 시간 단서 없음"
+      ]
     },
     {
       "id": 3,
@@ -46,13 +69,25 @@
       "subtype": "word-list",
       "level": "B1",
       "points": 0,
-      "topic_tags": ["environment"],
+      "topic_tags": [
+        "environment"
+      ],
       "stem": "다음 단어의 뜻과 예문을 익히시오.",
       "answer": "n/a",
       "explanation": "단어집 항목",
       "vocab_entries": [
-        {"word": "contaminate", "pos": "v.", "meaning_ko": "오염시키다", "example": "A single greasy pizza box can contaminate an entire bin of paper."},
-        {"word": "guarantee", "pos": "v.", "meaning_ko": "보장하다", "example": "Buying new equipment does not guarantee better results."}
+        {
+          "word": "contaminate",
+          "pos": "v.",
+          "meaning_ko": "오염시키다",
+          "example": "A single greasy pizza box can contaminate an entire bin of paper."
+        },
+        {
+          "word": "guarantee",
+          "pos": "v.",
+          "meaning_ko": "보장하다",
+          "example": "Buying new equipment does not guarantee better results."
+        }
       ]
     }
   ]

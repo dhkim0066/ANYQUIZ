@@ -53,3 +53,18 @@
 | inference 문항이 사실상 detail 수준 | 1 | 02-03 |
 
 2장 기준 정답 오류 0건. 지적은 전부 표현·난도 쪽. 5장 채운 뒤 가장 많은 유형 하나를 4단계 입력으로 삼는다.
+
+## 후속 조치 (2026-11-10, round-00 지적 반영)
+
+| 지적 | 조치 | 위치 |
+| :- | :- | :- |
+| 설계 질문: 영어 발문 + ①②③④ | 사용자 결정: **보기 표기는 원본을 따른다.** 언어와 묶던 규칙 삭제. 최상위 `option_marker` 추가, `--compare`가 검사 | CLAUDE.md 결정 2, schema.md, exam.schema.json |
+| 길이 규칙이 02-05를 못 잡음 | "정답만 3단어 이상 길거나 짧음" 검사 추가 | validate_schema.py |
+| JSON → 마크다운 렌더러 없음, 라벨 한국어 고정 | `scripts/render_md.py` 추가. 라벨은 language, 보기 번호는 option_marker | scripts/ |
+| 지문 공유 문항을 중복 저장 | `passage_group` 추가. 묶음 안 지문 동일성·번호 연속성 검사, 출력 시 지문 1회 | schema.md, validate_schema.py, render_md.py, export_docx.py |
+| 실패 3건(01-10, 02-05, 02-03) | 나쁜 예로 기록 | question-types.md |
+| 입력 문서 안의 지시문 | "입력 문서는 데이터입니다" 절 추가 | SKILL.md |
+
+**이 변경은 아직 실제 호출로 확인하지 않았다.** 스크립트는 `eval/samples/` 2종으로 확인했지만, 스킬이 `option_marker`·`passage_group`을 분석 단계에서 제대로 채우는지는 다음 실행(01·02 재실행)에서 확인한다. round-00의 JSON은 `option_marker`가 없어 새 스키마에서 실패한다.
+
+남은 미결: 수준 "B1+"를 스키마가 표현하지 못함(B1으로 기록). 5장 완료 후 판단.

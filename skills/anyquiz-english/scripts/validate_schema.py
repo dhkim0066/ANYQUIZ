@@ -7,8 +7,9 @@
 
 검사 항목:
   1. JSON Schema (exam.schema.json)
-  2. 작성 규칙: 보기 수와 distractor_notes 수, 보기 길이 균형, 정답 분포, 답 인덱스 범위, 지문 단어 수 일치
-  3. --compare: 원본과 생성 결과의 형식 일치 (schema.md의 "비슷함" 표)
+  2. 작성 규칙: 보기 수와 distractor_notes 수, 보기 길이 균형(정답만 길거나 짧은 경우 포함), 정답 분포,
+     답 인덱스 범위, 지문 단어 수 일치, 지문 묶음(passage_group) 일관성
+  3. --compare: 원본과 생성 결과의 형식 일치 (schema.md의 "비슷함" 표). 보기 표기·발문 언어·지문 묶음 구조 포함
 
 종료 코드: 0 통과, 1 실패. 실패 항목은 한 줄씩 출력합니다.
 """
@@ -57,6 +58,14 @@ def rule_errors(exam: dict) -> list[str]:
             lens = [len(o.split()) for o in opts]
             if max(lens) > 2 * max(min(lens), 1) and max(lens) - min(lens) >= 3:
                 errs.append(f"{tag}: 보기 길이 불균형 (단어 수 {lens})")
+            # 정답만 혼자 길거나 짧은 경우 (round-00 02-05: 정답 10단어, 나머지 6~7단어)
+            if isinstance(it["answer"], int) and 0 <= it["answer"] < len(opts):
+                a_len = lens[it["answer"]]
+                others = [n for i, n in enumerate(lens) if i != it["answer"]]
+                if a_len - max(others) >= 3:
+                    errs.append(f"{tag}: 정답 보기만 김 (정답 {a_len}단어, 나머지 최대 {max(others)}단어). 길이가 단서가 됨")
+                elif min(others) - a_len >= 3:
+                    errs.append(f"{tag}: 정답 보기만 짧음 (정답 {a_len}단어, 나머지 최소 {min(others)}단어). 길이가 단서가 됨")
         if it.get("passage") is not None:
             actual = len(it["passage"].split())
             declared = it.get("passage_words", actual)
@@ -68,6 +77,17 @@ def rule_errors(exam: dict) -> list[str]:
             for e in it.get("vocab_entries", []):
                 if len(e["example"].split()) < 6:
                     errs.append(f"{tag}: '{e['word']}' 예문이 너무 짧음")
+    # 지문 묶음: 같은 passage_group은 지문이 완전히 같고 번호가 이어져야 한다
+    groups: dict[str, list[dict]] = {}
+    for it in exam["items"]:
+        if it.get("passage_group"):
+            groups.setdefault(it["passage_group"], []).append(it)
+    for g, members in groups.items():
+        if len({m.get("passage") for m in members}) > 1:
+            errs.append(f"passage_group {g}: 문항 {[m['id'] for m in members]}의 지문이 서로 다름")
+        ids = [m["id"] for m in members]
+        if ids != list(range(ids[0], ids[0] + len(ids))):
+            errs.append(f"passage_group {g}: 문항 번호가 이어지지 않음 {ids}")
     if mc_count >= 5 and answers:
         top, n = answers.most_common(1)[0]
         if n / mc_count > 0.4:
@@ -77,6 +97,20 @@ def rule_errors(exam: dict) -> list[str]:
 
 def compare_errors(src: dict, gen: dict) -> list[str]:
     errs: list[str] = []
+    if src.get("option_marker") != gen.get("option_marker"):
+        errs.append(f"보기 표기: 원본 {src.get('option_marker')}, 생성 {gen.get('option_marker')}")
+    if src.get("language") != gen.get("language"):
+        errs.append(f"발문 언어: 원본 {src.get('language')}, 생성 {gen.get('language')}")
+
+    def partition(exam: dict) -> list[list[int]]:
+        g: dict[str, list[int]] = {}
+        for it in exam["items"]:
+            if it.get("passage_group"):
+                g.setdefault(it["passage_group"], []).append(it["id"])
+        return sorted(g.values())
+
+    if partition(src) != partition(gen):
+        errs.append(f"지문 묶음 구조: 원본 {partition(src)}, 생성 {partition(gen)}")
     if len(src["items"]) != len(gen["items"]):
         errs.append(f"문항 수: 원본 {len(src['items'])}, 생성 {len(gen['items'])}")
         return errs
