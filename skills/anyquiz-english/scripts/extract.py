@@ -14,6 +14,10 @@
 import sys
 from pathlib import Path
 
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8")
+
 MIN_WORDS_PER_PAGE = 20
 CENTER_BAND = (0.35, 0.65)   # 단 구분을 찾는 가로 범위 (쪽 폭 대비)
 MIN_COLUMN_HEIGHT = 0.5      # 단 구간의 최소 높이 (쪽 높이 대비)
@@ -125,9 +129,9 @@ def extract_with_pypdf(path: Path) -> list[str]:
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     use_columns = "--no-columns" not in sys.argv
-    if not args:
+    if not args or "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
-        return 1
+        return 0 if ("-h" in sys.argv or "--help" in sys.argv) else 1
     src = Path(args[0])
     if not src.exists():
         print(f"파일 없음: {src}", file=sys.stderr)
@@ -148,8 +152,6 @@ def main() -> int:
         Path(args[1]).write_text(text, encoding="utf-8")
         print(f"저장: {args[1]} ({len(pages)}쪽, {total_words}단어)")
     else:
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8")
         print(text)
 
     if two_col:

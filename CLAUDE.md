@@ -18,6 +18,12 @@
 5. 단어집은 입력 텍스트에서 추출 / 입력 없이 생성 둘 다 지원.
 6. 생성은 반드시 분석 → 생성 → 검증 3단계. 한 번에 하지 않는다.
 7. 스캔 PDF, 듣기, 영어 외 과목은 지원하지 않는다고 말하고 멈춘다.
+8. JSON은 스키마 v2 하나를 두 역할로 쓴다. `source`(원본 분석)는 형식 정보만 담고 원본에 없는 것을 지어 넣지 않는다. `generated`(생성물)에만 정답·해설·오답 이유를 요구하고 작성 규칙 검사를 적용한다.
+9. 정답지가 없는 원본도 받는다(`answer_key: none`). 새 문제를 만드는 데 원본 정답은 필요 없다.
+10. 빈칸 문제는 보기로 나눈다. 보기가 단어면 `cloze/single-blank`, 구·절이면 `reading/blank-inference`.
+11. 발문 언어, 해설 언어, 보기 언어, 보기 표기는 서로 묶지 않고 각각 원본을 따른다.
+12. 지문 단어 수·보기 길이는 JSON에 적지 않고 스크립트가 센다(`validate_schema.py --stats`).
+13. 검증에서 다시 만드는 조건은 셋이다: 정답 불일치, 보기만으로 풀림, 답이 둘 이상 가능.
 
 ## 정확도 정의 (PLAN.md 3단계 기준)
 
@@ -35,12 +41,13 @@
 - 스킬 파일을 고친 뒤에는 반드시 `/anyquiz-english`로 실제 호출해 본다. 파일만 보고 판단하지 않는다.
 - `references/question-types.md`의 "나쁜 예"는 실제 실패 사례에서만 추가한다. 상상해서 쓰지 않는다.
 - 평가 세트(`eval/sources/`)의 문제지는 사용자가 직접 만들어 제공한다. Claude가 만들지 않는다(생성기 편향이 기준에 들어간다).
-- `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx). `-I`에서는 스크립트끼리 import가 안 되므로 공용 모듈을 만들지 않는다.
+- `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx). `-I`에서는 같은 폴더 import가 안 된다. 스크립트끼리 코드를 나눠 쓸 때는 `export_docx.py`처럼 `importlib`로 경로를 지정해 불러온다. 출력 구조는 `render_md.py`의 `build_blocks()` 한 곳에서 만든다.
+- 새 유형이나 필드를 더할 때는 네 곳을 함께 고친다: `schema.md`의 "유형별 담는 법", `exam.schema.json`, `validate_schema.py`, `render_md.py`. 한 곳만 고치면 04번의 짝짓기처럼 문서대로 담았는데 출력이 망가진다.
 - 스크립트 수정 후 `eval/samples/`로 회귀 확인:
   ```
-  python3 skills/anyquiz-english/scripts/validate_schema.py eval/samples/sample-generated.json
-  python3 skills/anyquiz-english/scripts/validate_schema.py eval/samples/sample-en-group.json
-  python3 skills/anyquiz-english/scripts/render_md.py eval/samples/sample-en-group.json
+  python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-source.json eval/samples/sample-generated.json
+  python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-en-group.source.json eval/samples/sample-en-group.json
+  python3 skills/anyquiz-english/scripts/render_md.py eval/samples/sample-generated.json
   python3 skills/anyquiz-english/scripts/overlap.py eval/samples/sample-source.txt eval/samples/sample-generated.json
   ```
 - 커밋 메시지는 한국어, 한 줄 요약 + 필요 시 본문.

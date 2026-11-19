@@ -47,9 +47,9 @@ cp -r ANYQUIZ/skills/anyquiz-english .agents/skills/
 
 ## 동작 방식
 
-1. 분석: 원본을 문항 JSON(`references/schema.md`)으로 변환하고 사용자에게 요약 표로 확인
+1. 분석: 원본의 형식을 JSON(`references/schema.md`)으로 적고 사용자에게 요약 표로 확인. 정답지가 없는 문제지도 받음
 2. 생성: JSON을 제약 조건 삼아 새 문항 작성. 원본 문장은 재사용하지 않음
-3. 검증: 원본을 보지 않은 상태로 다시 풀어 정답 일치 확인 → 스키마·중복률 스크립트
+3. 검증: 형식 비교와 중복률은 스크립트로, 정답은 정답 없는 문제지만 가지고 다시 풀어 확인. 보기만으로 풀리는 문항은 오답을 다시 씀
 4. 출력: 문제지 / 정답·해설 분리 마크다운, 요청 시 DOCX
 
 ## 스크립트 (Python 3)
@@ -57,10 +57,12 @@ cp -r ANYQUIZ/skills/anyquiz-english .agents/skills/
 ```bash
 pip install pdfplumber pypdf jsonschema python-docx skills-ref
 python3 scripts/extract.py exam.pdf out.txt
-python3 scripts/validate_schema.py generated.json
+python3 scripts/validate_schema.py source.json            # 원본 분석: 구조만 검사
+python3 scripts/validate_schema.py --stats source.json    # 지문 단어 수, 보기 길이
 python3 scripts/validate_schema.py --compare source.json generated.json
 python3 scripts/overlap.py source.txt generated.json
 python3 scripts/render_md.py generated.json out.md
+python3 scripts/render_md.py generated.json paper.md --paper-only   # 정답 없이 문제지만
 python3 scripts/export_docx.py generated.json out.docx
 ```
 

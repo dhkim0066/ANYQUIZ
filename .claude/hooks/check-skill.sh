@@ -14,7 +14,9 @@ fi
 for f in skills/anyquiz-english/scripts/*.py; do
   out=$($PY -m py_compile "$f" 2>&1) || { echo "컴파일 실패: $f"; echo "$out"; fail=1; } >&2
 done
-out=$($PY skills/anyquiz-english/scripts/validate_schema.py eval/samples/sample-generated.json 2>&1) \
+out=$($PY skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-source.json eval/samples/sample-generated.json 2>&1 \
+      && $PY skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-en-group.source.json eval/samples/sample-en-group.json 2>&1 \
+      && $PY skills/anyquiz-english/scripts/render_md.py eval/samples/sample-generated.json 2>&1 >/dev/null) \
   || { echo "회귀 테스트 실패 (eval/samples):"; echo "$out"; fail=1; } >&2
 lines=$(wc -l < skills/anyquiz-english/SKILL.md | tr -d ' ')
 [ "$lines" -gt 500 ] && { echo "SKILL.md가 ${lines}줄. 500줄을 넘으면 references/로 옮기세요." >&2; fail=1; }

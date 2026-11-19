@@ -5,9 +5,10 @@
     python3 overlap.py source.txt generated.json [--n 6] [--threshold 0.15]
 
 측정 방법:
-  생성물의 각 텍스트(passage, vocab 예문, 보기)를 단어 n-gram(기본 6)으로 쪼개고,
-  원본에 그대로 등장하는 n-gram의 비율을 계산합니다. 문항별로 출력하고,
+  생성물의 각 텍스트(지문, 주어진 글, 요약문, 보기, 단어집 예문, 짝짓기 뜻풀이)를 단어 n-gram(기본 6)으로
+  쪼개고, 원본에 그대로 등장하는 n-gram의 비율을 계산합니다. 문항별로 출력하고,
   임계값(기본 15%)을 넘는 문항이 하나라도 있으면 종료 코드 1.
+  순서·삽입·무관한 문장의 보기는 기호뿐이라 세지 않습니다(원본과 같을 수밖에 없음).
 
 passage 모드에서는 지문을 그대로 쓰는 것이 정상이므로 이 스크립트를 돌리지 않습니다.
 """
@@ -15,6 +16,12 @@ import json
 import re
 import sys
 from pathlib import Path
+
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8")
+
+SYMBOL_OPTIONS = {"order", "insertion", "irrelevant"}
 
 
 def tokens(text: str) -> list[str]:
@@ -35,9 +42,9 @@ def ratio(text: str, src_grams: set, n: int) -> tuple[float, int]:
 
 def main() -> int:
     args = sys.argv[1:]
-    if len(args) < 2:
+    if len(args) < 2 or args[0] in ("-h", "--help"):
         print(__doc__)
-        return 1
+        return 0 if args and args[0] in ("-h", "--help") else 1
     n, threshold = 6, 0.15
     if "--n" in args:
         n = int(args[args.index("--n") + 1])
@@ -49,11 +56,11 @@ def main() -> int:
 
     failed = 0
     for it in exam["items"]:
-        parts: list[str] = []
-        if it.get("passage"):
-            parts.append(it["passage"])
-        parts += it.get("options") or []
-        parts += [e["example"] for e in it.get("vocab_entries", [])]
+        parts: list[str] = [it.get(k, "") for k in ("given", "passage", "prompt_text")]
+        if it.get("subtype") not in SYMBOL_OPTIONS:
+            parts += it.get("options") or []
+        parts += [e.get("example", "") for e in it.get("vocab_entries", [])]
+        parts += it.get("match_right") or []
         text = " ".join(parts)
         r, hit = ratio(text, src_grams, n)
         flag = "FAIL" if r > threshold else "ok"

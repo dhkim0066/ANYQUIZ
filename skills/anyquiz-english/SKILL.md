@@ -5,7 +5,7 @@ license: MIT
 compatibility: Designed for Claude Code, claude.ai, and other Agent Skills clients. PDF input requires Python 3 with pdfplumber (scripts/extract.py).
 metadata:
   author: donghyun
-  version: "0.1.0"
+  version: "0.2.0"
   subject: english
 ---
 
@@ -48,86 +48,118 @@ metadata:
 
 반드시 이 순서로 진행합니다. 분석과 생성을 한 번에 하지 않습니다. 한 번에 하면 형식·내용·정답이 동시에 흔들립니다.
 
+스크립트는 `python3 scripts/<이름>.py`로 실행합니다. `python3`가 없는 환경(Windows 등)에서는 `python`을 씁니다. 모든 스크립트는 `--help`를 받습니다.
+
 ### 1. 입력 처리
 
-- PDF면 `scripts/extract.py <file.pdf>`를 실행해 텍스트를 얻습니다. 출력이 거의 비어 있으면 스캔 PDF이므로 지원하지 않는다고 알립니다.
+- PDF면 `scripts/extract.py <file.pdf> source.txt`를 실행해 텍스트를 얻습니다. 출력이 거의 비어 있으면 스캔 PDF이므로 지원하지 않는다고 알립니다.
 - 스크립트가 "2단 편집 감지"를 알리면 왼쪽 단, 오른쪽 단 순서로 읽은 결과입니다. 문항 번호가 순서대로 이어지는지 확인하고, 뒤섞였으면 `--no-columns`로 다시 추출해 비교합니다.
+- 2단 PDF의 표는 칸이 두 줄로 넘어가면 줄이 엇갈려 나옵니다(`A. … its` / `(가) empty ____` / `side`). 기호((가), A.)를 기준으로 다시 맞춰 읽습니다.
 - PDF에서 꺼낸 텍스트에는 **굵게·밑줄 표시가 남지 않습니다.** "밑줄 친", "굵게 표시한" 대상을 묻는 문항인데 지문에서 그 대상이 하나로 정해지지 않으면 추측하지 말고 사용자에게 묻습니다.
 - 텍스트가 2,000단어를 넘으면 문항 단위로 나누어 처리합니다.
 
-### 2. 분석 → `exam.json`
+### 2. 분석 → `source.json`
 
-원본을 읽고 `references/schema.md`의 스키마대로 JSON을 만듭니다. 문항마다 다음을 채웁니다.
+원본을 읽고 `references/schema.md`대로 `role: "source"`인 JSON을 만듭니다. 이 파일은 **원본의 형식을 적는 곳**입니다.
 
-- `type`: cloze / vocab / reading
-- `subtype`: 유형 세부 (예: reading의 `main-idea`, `blank-inference`, `title`, `order`, `insertion`, `detail`)
-- `level`: CEFR 추정 (A2~C1)과 근거 (문장 평균 길이, 어휘 빈도)
-- `passage_words`: 지문 단어 수
-- `options`: 보기 수, 보기 평균 길이
-- `topic_tags`: 소재 태그 2~4개
-- `points`: 배점
-- `passage_group`: 한 지문에 문항이 여러 개 딸린 경우(`[1~4] 다음 글을 읽고…`) 같은 묶음 이름을 줍니다. 묶음 안 문항은 `passage`가 글자 하나까지 같아야 합니다.
-- 최상위 `option_marker`: 원본의 보기 번호 표기. `circled`(①②③), `letter`((A)(B)(C)), `number`((1)(2)(3)).
-- 최상위 `language`: 발문·해설 언어 (`ko` / `en`). 원본 발문이 한국어면 `ko`.
+- **원본에 없는 것은 지어 넣지 않습니다.** 오답 이유, 해설, 예문이 원본에 없으면 비워 둡니다.
+- 정답지가 있으면 정답을 옮겨 적고 `answer_key: "provided"`. 없으면 `answer_key: "none"`으로 두고 그대로 진행합니다. 새 문제를 만드는 데 원본 정답은 필요 없습니다. 사용자에게는 "정답지가 없어 형식만 분석했다"고 한 줄로 알립니다.
+- 제목, 영역 제목(`sections`), 묶음 안내문(`group_instruction`), 발문(`stem`)은 **원본 문구 그대로** 적습니다.
+- 유형은 `schema.md`의 subtype 표에서 고르고, "유형별 담는 법" 표대로 담습니다. 빈칸 문제는 영역 제목이 아니라 보기를 보고 나눕니다(단어면 `cloze/single-blank`, 구·절이면 `reading/blank-inference`).
+- 문항마다 보기 언어(`option_language`), 일치·불일치 방향(`polarity`), 단어집의 열(`vocab_columns`), 단어가 지문에서 나왔는지(`words_from_passages`)를 적습니다.
+- 지문 단어 수, 보기 길이, 문장 평균 길이는 **적지 않습니다.** 스크립트가 셉니다.
 
-`passage` 모드에서는 원본 문제지가 없으므로 사용자가 지정한 문항 수·유형으로 스키마를 직접 구성합니다.
+다 적으면 두 가지를 실행합니다.
 
-분석 결과를 사용자에게 **표 한 개로 요약**해 보여 주고 확인을 받습니다. 여기서 틀리면 뒤가 전부 틀립니다.
+```
+python3 scripts/validate_schema.py source.json           # 구조 검사
+python3 scripts/validate_schema.py --stats source.json   # 지문 단어 수, 문장 평균 길이, 보기 길이
+```
 
-### 3. 생성
+`--stats` 출력과 `references/subject-english.md` 1절로 수준을 정하고, 분석 결과를 사용자에게 **표 한 개로 요약**해 보여 준 뒤 확인을 받습니다(영역, 문항별 유형, 수준, 배점, 지문 단어 수). 여기서 틀리면 뒤가 전부 틀립니다.
 
-`exam.json`을 **제약 조건**으로 삼아 새 문항을 만듭니다. 규칙은 두 파일에 있습니다.
+`passage`·`vocab` 모드에는 원본 문제지가 없으므로 `source.json`을 만들지 않습니다. 사용자가 정한 문항 수·유형으로 3단계의 `generated.json`을 바로 구성합니다.
 
-- `references/question-types.md`: 유형별 작성 규칙, 좋은 예와 나쁜 예
-- `references/subject-english.md`: 영어 과목 규칙 (어휘 수준 맞추기, 지문 작성, 오답 보기 설계)
+### 3. 생성 → `generated.json`
 
-생성할 때 지키는 것:
+`source.json`을 **틀**로 삼아 `role: "generated"`인 JSON을 만듭니다. 규칙은 두 파일에 있습니다.
 
-- `format` 모드에서 원본 지문·문장은 **보지 않은 것처럼** 새로 씁니다. 소재(topic_tags)와 수준만 가져옵니다.
-- `passage` 모드에서는 지문을 그대로 쓰되, 문제 문장과 보기는 새로 씁니다.
-- 객관식은 보기 길이를 비슷하게 맞춥니다. 정답만 길거나 짧으면 안 됩니다.
-- 모든 문항에 정답과 **두 문장 이내의 해설**을 붙입니다. 객관식은 오답 보기마다 왜 틀린지 한 구절씩 적습니다. 이 과정에서 복수 정답이 드러나면 그 문항을 다시 만듭니다.
+- `references/question-types.md`: 유형별 작성 규칙, 좋은 예와 실제 실패 사례
+- `references/subject-english.md`: 수준 맞추기, 지문 작성, 오답 설계
+
+그대로 가져오는 것: 제목, 영역, 묶음 안내문, 발문, 문항 순서와 유형, 보기 수, 보기 언어, 배점, 보기 표기, 단어집의 열.
+
+새로 쓰는 것: 지문, 주어진 글, 요약문, 보기, 정답, 해설, 오답 이유.
+
+- `format` 모드에서 원본 지문·문장은 **보지 않은 것처럼** 새로 씁니다. 소재(`topic_tags`)와 수준, 길이만 가져옵니다. 길이 목표는 `--stats`가 보여 준 원본 단어 수의 ±20%입니다.
+- `passage` 모드에서는 지문을 그대로 쓰되, 발문과 보기는 새로 씁니다.
+- 단어집·짝짓기의 단어가 원본에서 지문 출처였다면, **새로 쓴 지문**에서 뽑습니다.
+- 모든 문항에 정답과 **두 문장 이내의 해설**을 붙입니다. 독해 객관식은 오답 보기마다 왜 틀린지 한 구절씩 적습니다. 이 과정에서 복수 정답이 드러나면 그 문항을 다시 만듭니다.
 
 ### 4. 검증
 
-생성된 문항을 **원본과 생성 과정을 참고하지 않고** 다시 풉니다. 정답 키와 다르면 그 문항을 다시 만듭니다. 그다음 스크립트를 돌립니다.
+아래 세 가지를 순서대로 합니다.
+
+**① 형식** (`format` 모드는 비교까지, 그 밖의 모드는 단독 검사)
 
 ```
-python3 scripts/validate_schema.py generated.json     # 스키마·문항 수·보기 수
-python3 scripts/overlap.py source.txt generated.json   # 원문 중복률 (format 모드만)
+python3 scripts/validate_schema.py --compare source.json generated.json
+python3 scripts/validate_schema.py generated.json
 ```
 
-- 스키마 실패: 해당 문항 수정
-- 중복률 15% 초과: 해당 문항의 지문 재작성
+**② 중복률** (`format` 모드만)
 
-검증을 통과하지 못한 문항을 그대로 내보내지 않습니다.
+```
+python3 scripts/overlap.py source.txt generated.json
+```
+
+**③ 독립 풀이**
+
+```
+python3 scripts/render_md.py generated.json paper.md --paper-only
+```
+
+정답과 해설이 빠진 `paper.md`만 가지고 문제를 풉니다. 서브에이전트를 쓸 수 있으면 **새 서브에이전트에 `paper.md`만** 넘깁니다. 쓸 수 없으면 `generated.json`과 원본을 다시 열지 않고 `paper.md`만 읽고 풉니다. 풀이자는 문항마다 세 가지를 답합니다.
+
+1. 고른 답
+2. 지문을 가리고 보기만 봐도 이 답을 고를 수 있었는가
+3. 답이 될 수 있는 보기가 둘 이상인가
+
+**다시 만드는 조건**
+
+| 결과 | 조치 |
+| :- | :- |
+| 형식 검사 실패 | 실패한 문항을 고침 |
+| 중복률 15% 초과 | 그 문항의 지문을 다시 씀 |
+| 풀이자의 답이 정답과 다름 | 문항을 다시 만듦 |
+| 보기만으로 풀림 | 오답을 다시 씀 (지문을 읽지 않은 사람에게도 그럴듯하게) |
+| 답이 둘 이상 가능 | 지문이나 보기를 고쳐 하나로 만듦 |
+
+고친 뒤에는 ①부터 다시 합니다. 두 번 고쳐도 남는 문항은 그대로 내보내지 말고, 어느 문항이 왜 남았는지 사용자에게 알립니다.
 
 ### 5. 출력
 
-`scripts/render_md.py generated.json out.md`로 마크다운을 만듭니다. 라벨과 배점 표기는 `language`를, 보기 번호는 `option_marker`를 따릅니다. 두 섹션으로 나옵니다.
-
 ```
-# [제목] — 문제지
-(문항)
-
-# [제목] — 정답 및 해설
-(번호, 정답, 해설, 오답 이유)
+python3 scripts/render_md.py generated.json out.md
+python3 scripts/export_docx.py generated.json out.docx   # 요청 시
 ```
 
-DOCX 요청 시 `scripts/export_docx.py generated.json out.docx`를 실행하고 파일을 전달합니다.
+머리(제목, 이름·날짜·점수 줄, 영역별 배점표), 문제지, 정답·해설 순으로 나옵니다. 라벨은 발문 언어를, 보기 번호는 원본 표기를 따릅니다.
 
-마지막에 **분석 요약(2단계 표)과 검증 결과(통과 문항 수, 중복률)**를 세 줄로 덧붙입니다. 사용자가 품질을 판단할 근거입니다.
+마지막에 **분석 요약(2단계 표)과 검증 결과(형식 통과 여부, 중복률, 독립 풀이 일치 수, 고친 문항)**를 서너 줄로 덧붙입니다. 사용자가 품질을 판단할 근거입니다.
 
 ## 하지 않는 것
 
 - 원본 문장을 그대로 또는 단어 몇 개만 바꿔 재사용하는 것
+- 원본 분석에 원본에 없는 내용(해설, 오답 이유, 예문)을 지어 넣는 것
 - 정답 근거가 지문에 없는 독해 문항
-- 빈칸 문항에서 문맥 없이도 풀리는 문항 (단어 뜻만 알면 되는 것은 `vocab`으로 분류)
+- 지문을 읽지 않아도 보기만으로 풀리는 문항
+- 지문 단어 수나 보기 길이를 직접 세어 적는 것 (스크립트가 셉니다)
 - 검증 없이 내보내는 것
 
 ## 파일 참조
 
-- 스키마: `references/schema.md`
-- 유형별 규칙과 예시: `references/question-types.md`
+- 스키마와 유형별 담는 법: `references/schema.md`
+- 유형별 작성 규칙과 실패 사례: `references/question-types.md`
 - 영어 과목 규칙: `references/subject-english.md`
 - DOCX 템플릿: `assets/exam-template.docx`

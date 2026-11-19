@@ -1,93 +1,160 @@
 {
-  "title": "샘플 영어 문제지 (스크립트 검증용)",
+  "schema_version": 2,
+  "role": "generated",
+  "title": "샘플 영어 연습지 (스크립트 회귀용)",
   "mode": "format",
   "language": "ko",
   "option_marker": "circled",
-  "source_level": "B1",
+  "source_level": "A2",
+  "sections": [
+    {"title": "Ⅰ. 독해", "first": 1, "last": 7},
+    {"title": "Ⅱ. 빈칸", "first": 8, "last": 10},
+    {"title": "Ⅲ. 어휘", "first": 11, "last": 13}
+  ],
   "items": [
     {
-      "id": 1,
-      "type": "reading",
-      "subtype": "main-idea",
-      "level": "B1",
-      "points": 2,
-      "topic_tags": [
-        "environment",
-        "recycling"
-      ],
-      "passage": "Many cities have introduced recycling programs, but simply placing bins on street corners does not guarantee results. Residents often do not know which materials are accepted, and contaminated loads end up in landfills anyway. Programs that succeed share one feature: they explain the rules clearly and repeat them often, through signs, school lessons, and local media. In other words, recycling works when people understand it, not merely when the equipment is available.",
-      "passage_words": 76,
-      "stem": "다음 글의 요지로 가장 적절한 것은?",
-      "options": [
-        "재활용 시설을 늘리면 쓰레기 문제가 해결된다.",
-        "재활용의 성패는 주민의 이해에 달려 있다.",
-        "학교 교육만으로는 재활용률을 높일 수 없다.",
-        "오염된 재활용품은 매립지로 보내야 한다.",
-        "지역 언론은 환경 문제를 더 자주 다뤄야 한다."
-      ],
+      "id": 1, "type": "reading", "subtype": "detail", "polarity": "match", "level": "A2", "points": 9,
+      "topic_tags": ["daily-life", "words"], "passage_group": "g1",
+      "group_instruction": "[1~3] 다음 글을 읽고 물음에 답하시오.",
+      "passage": "Mina keeps a small notebook in her coat pocket. On the bus, she writes down one new word from a sign or a poster. At night, she reads **it** aloud to her younger brother. He laughs at the strange sounds, but he remembers many of the words. Now both of them know the names of every stop on the line.",
+      "footnote": "*aloud: 소리 내어",
+      "stem": "글의 내용과 일치하는 것은?",
+      "options": ["미나는 공책을 가방에 넣고 다닌다.", "미나는 버스에서 새 단어를 적는다.", "미나는 아침에 단어를 읽어 준다.", "남동생은 단어를 전혀 기억하지 못한다."],
+      "option_language": "ko",
       "answer": 1,
-      "explanation": "마지막 문장 'recycling works when people understand it'이 요지. 성공한 프로그램의 공통점이 규칙을 명확히 설명하는 것이라고 했다.",
-      "distractor_notes": [
-        "①은 지문과 반대(시설만으로는 부족)",
-        "③은 부분 정보",
-        "④는 언급 없음",
-        "⑤는 범위 초과"
-      ]
+      "explanation": "둘째 문장에서 미나는 버스에서 새 단어 하나를 적는다고 했다.",
+      "distractor_notes": ["공책은 코트 주머니에 있음", "읽어 주는 때는 밤", "남동생은 많은 단어를 기억함"]
     },
     {
-      "id": 2,
-      "type": "cloze",
-      "subtype": "single-blank",
-      "level": "B1",
-      "points": 2,
-      "topic_tags": [
-        "policy",
-        "traffic"
-      ],
-      "passage": "Although the new policy was designed to reduce traffic, it had the ____ effect: more cars appeared downtown than before.",
-      "passage_words": 21,
+      "id": 2, "type": "reading", "subtype": "reference", "level": "A2", "points": 9,
+      "topic_tags": ["daily-life", "words"], "passage_group": "g1",
+      "passage": "Mina keeps a small notebook in her coat pocket. On the bus, she writes down one new word from a sign or a poster. At night, she reads **it** aloud to her younger brother. He laughs at the strange sounds, but he remembers many of the words. Now both of them know the names of every stop on the line.",
+      "footnote": "*aloud: 소리 내어",
+      "stem": "굵게 표시한 it이 가리키는 것은?",
+      "options": ["새 단어", "버스 표지판", "코트 주머니", "남동생"],
+      "option_language": "ko",
+      "answer": 0,
+      "explanation": "바로 앞 문장에서 적은 새 단어를 밤에 소리 내어 읽는다.",
+      "distractor_notes": ["단어를 본 곳", "공책을 넣는 곳", "듣는 사람"]
+    },
+    {
+      "id": 3, "type": "reading", "subtype": "summary", "level": "A2", "points": 9,
+      "topic_tags": ["daily-life", "words"], "passage_group": "g1",
+      "passage": "Mina keeps a small notebook in her coat pocket. On the bus, she writes down one new word from a sign or a poster. At night, she reads **it** aloud to her younger brother. He laughs at the strange sounds, but he remembers many of the words. Now both of them know the names of every stop on the line.",
+      "footnote": "*aloud: 소리 내어",
+      "stem": "글을 한 문장으로 요약할 때, (A)와 (B)에 들어갈 말로 알맞은 조합은?",
+      "prompt_text": "Mina collects new (A) ____ on the bus and shares them with her (B) ____.",
+      "options": ["songs – brother", "words – teacher", "words – brother", "songs – teacher"],
+      "option_language": "en",
+      "answer": 2,
+      "explanation": "버스에서 단어를 모아 남동생에게 읽어 준다는 내용이다.",
+      "distractor_notes": ["모으는 것은 노래가 아님", "나누는 상대는 선생님이 아님", "두 자리 모두 틀림"]
+    },
+    {
+      "id": 4, "type": "reading", "subtype": "irrelevant", "level": "A2", "points": 9,
+      "topic_tags": ["town", "market"],
+      "passage": "Our town opens a night market every Saturday in summer. ① Farmers bring fresh fruit and sell it from small tables. ② Children play simple games and win tiny prizes. ③ Musicians play near the gate until the market ends. ④ The town library closes early on Mondays.",
+      "stem": "다음 글에서 흐름과 관계없는 문장은?",
+      "options": ["①", "②", "③", "④"],
+      "answer": 3,
+      "explanation": "①~③은 야시장에서 벌어지는 일이고, ④는 도서관 이야기다.",
+      "distractor_notes": ["야시장에서 파는 것", "야시장의 놀이", "야시장의 음악"]
+    },
+    {
+      "id": 5, "type": "reading", "subtype": "order", "level": "A2", "points": 9,
+      "topic_tags": ["plants", "home"],
+      "given": "Jun wanted to grow tomatoes on his balcony, so he bought three small plants.",
+      "passage": "(A) After that change, new green leaves appeared within a week.\n\n(B) At first, however, the leaves turned yellow because the pots stood in the shade all day.\n\n(C) To solve this problem, he moved the pots to the sunny side of the balcony.",
+      "stem": "주어진 글 다음에 이어질 글의 순서로 가장 적절한 것은?",
+      "options": ["(A)-(C)-(B)", "(B)-(A)-(C)", "(B)-(C)-(A)", "(C)-(A)-(B)"],
+      "answer": 2,
+      "explanation": "(B)의 however가 주어진 글과 대조되고, (C)의 this problem은 (B)의 노란 잎, (A)의 that change는 (C)의 화분 옮기기를 가리킨다.",
+      "distractor_notes": ["(A)의 that change가 가리킬 대상이 없음", "(A)가 (C)보다 먼저 올 수 없음", "(C)의 this problem이 가리킬 대상이 없음"]
+    },
+    {
+      "id": 6, "type": "reading", "subtype": "insertion", "level": "A2", "points": 9,
+      "topic_tags": ["school", "morning"],
+      "given": "That is why she now leaves home ten minutes earlier.",
+      "passage": "Sora walks to school every morning. ( ① ) Since a new bakery opened on her street, the smell of warm bread makes her stop at the window each day. ( ② ) She still arrives at school before the first bell. ( ③ ) Her friends wait for her at the gate. ( ④ )",
+      "stem": "글의 흐름으로 보아, 주어진 문장이 들어가기에 가장 적절한 곳은?",
+      "options": ["①", "②", "③", "④"],
+      "answer": 1,
+      "explanation": "That is why가 가리키는 이유(빵집 앞에서 멈춤)가 바로 앞에 있고, 뒤 문장의 still이 일찍 나선 결과와 이어진다.",
+      "distractor_notes": ["이유가 아직 나오지 않음", "still과의 연결이 끊김", "글의 끝이라 뒤 문장과 이어지지 않음"]
+    },
+    {
+      "id": 7, "type": "reading", "subtype": "blank-inference", "level": "A2", "points": 9,
+      "topic_tags": ["school", "books"],
+      "passage": "A school club wanted more students to borrow books. Instead of making a long list of rules, the members put one shelf near the front door and changed its books every week. Soon, more students stopped to look. The club learned that people read more when ____.",
       "stem": "다음 빈칸에 들어갈 말로 가장 적절한 것은?",
-      "options": [
-        "intended",
-        "opposite",
-        "gradual",
-        "similar",
-        "temporary"
-      ],
+      "options": ["books are easy to notice", "rules are written very clearly", "the library stays open longer", "teachers choose every single book"],
+      "option_language": "en",
+      "answer": 0,
+      "explanation": "문 가까이에 책장을 두자 학생들이 멈춰 보았다는 결과가 근거다.",
+      "distractor_notes": ["규칙 목록 대신 다른 방법을 썼음", "개방 시간은 언급 없음", "책을 고른 사람은 동아리 구성원"]
+    },
+    {
+      "id": 8, "type": "cloze", "subtype": "word-bank", "level": "A2", "points": 9, "points_per_part": 3,
+      "topic_tags": ["plants", "school"],
+      "passage": "We plant seeds in the school garden every spring. First, we dig small holes in the (가) ____. Then we pour (나) ____ on them every morning. When the sun is strong, the plants grow tall and green (다) ____ appear.",
+      "stem": "보기에서 알맞은 단어를 골라 빈칸에 하나씩 쓰시오.",
+      "word_bank": ["snow", "water", "soil", "sand", "leaves"],
+      "answer": ["soil", "water", "leaves"],
+      "explanation": "구멍을 파는 곳은 흙, 붓는 것은 물, 자라면서 나오는 초록색은 잎이다."
+    },
+    {
+      "id": 9, "type": "cloze", "subtype": "multi-blank", "level": "A2", "points": 7,
+      "topic_tags": ["weather", "morning"],
+      "passage": "It was very cold this morning, so I put on my (A)【gloves / sandals】. The road was covered with ice, and I walked (B)【slowly / quickly】 to stay safe. At school, I held a cup of hot tea to make my hands (C)【warm / wet】.",
+      "stem": "(A), (B), (C)의 네모 안에서 문맥에 맞는 낱말을 고른 조합은?",
+      "options": ["gloves – quickly – wet", "sandals – slowly – warm", "gloves – slowly – wet", "gloves – slowly – warm"],
+      "option_language": "en",
+      "answer": 3,
+      "explanation": "추워서 장갑을 끼고, 얼음길이라 천천히 걷고, 뜨거운 차로 손을 따뜻하게 한다."
+    },
+    {
+      "id": 10, "type": "cloze", "subtype": "single-blank", "level": "A2", "points": 7,
+      "topic_tags": ["museum", "plan"],
+      "passage": "The museum is ____ on Mondays, so we will visit it on Tuesday instead.",
+      "stem": "빈칸에 들어갈 말로 가장 적절한 것은?",
+      "options": ["open", "closed", "crowded", "famous"],
+      "option_language": "en",
       "answer": 1,
-      "explanation": "'designed to reduce'와 'more cars than before'의 대조가 단서.",
-      "distractor_notes": [
-        "①은 의미 반대",
-        "③은 대조 단서와 무관",
-        "④는 결과와 모순",
-        "⑤는 시간 단서 없음"
+      "explanation": "화요일에 대신 간다는 말(instead)이 월요일에는 갈 수 없다는 단서다."
+    },
+    {
+      "id": 11, "type": "vocab", "subtype": "definition-match", "level": "A2", "points": 8, "points_per_part": 2,
+      "topic_tags": ["vocabulary"],
+      "stem": "왼쪽 단어에 알맞은 영어 뜻풀이를 오른쪽에서 찾아 기호를 쓰시오.",
+      "match_left": ["pocket", "market", "shade", "bell"],
+      "match_left_labels": ["(가)", "(나)", "(다)", "(라)"],
+      "match_right": ["a place where people buy and sell things", "a dark area where sunlight does not reach", "a small bag sewn into your clothes", "a metal object that rings to tell the time", "a road that goes over a river"],
+      "match_right_labels": ["A.", "B.", "C.", "D.", "E."],
+      "words_from_passages": true,
+      "answer": [2, 0, 1, 3],
+      "explanation": "E는 다리의 뜻풀이로, 짝이 없다."
+    },
+    {
+      "id": 12, "type": "vocab", "subtype": "meaning-write", "level": "A2", "points": 6, "points_per_part": 2,
+      "topic_tags": ["vocabulary"],
+      "stem": "다음 단어의 문맥상 우리말 뜻을 쓰시오.",
+      "words_from_passages": true,
+      "vocab_entries": [
+        {"word": "borrow", "meaning": "빌리다"},
+        {"word": "appear", "meaning": "나타나다"},
+        {"word": "arrive", "meaning": "도착하다"}
       ]
     },
     {
-      "id": 3,
-      "type": "vocab",
-      "subtype": "word-list",
-      "level": "B1",
-      "points": 0,
-      "topic_tags": [
-        "environment"
-      ],
-      "stem": "다음 단어의 뜻과 예문을 익히시오.",
-      "answer": "n/a",
-      "explanation": "단어집 항목",
+      "id": 13, "type": "vocab", "subtype": "word-list", "level": "A2", "points": 0,
+      "topic_tags": ["vocabulary"],
+      "stem": "단어집: 위 지문에 나온 단어",
+      "vocab_columns": ["word", "pos", "meaning"],
+      "words_from_passages": true,
       "vocab_entries": [
-        {
-          "word": "contaminate",
-          "pos": "v.",
-          "meaning_ko": "오염시키다",
-          "example": "A single greasy pizza box can contaminate an entire bin of paper."
-        },
-        {
-          "word": "guarantee",
-          "pos": "v.",
-          "meaning_ko": "보장하다",
-          "example": "Buying new equipment does not guarantee better results."
-        }
+        {"word": "notice", "pos": "동사", "meaning": "알아차리다"},
+        {"word": "solve", "pos": "동사", "meaning": "해결하다"},
+        {"word": "fresh", "pos": "형용사", "meaning": "신선한"}
       ]
     }
   ]

@@ -1,29 +1,71 @@
 #!/usr/bin/env python3
-"""exam.json을 스키마와 작성 규칙으로 검사합니다.
+"""exam.json(v2)을 검사합니다.
 
 사용법:
-    python3 validate_schema.py generated.json
+    python3 validate_schema.py file.json
     python3 validate_schema.py --compare source.json generated.json
+    python3 validate_schema.py --stats file.json
 
-검사 항목:
-  1. JSON Schema (exam.schema.json)
-  2. 작성 규칙: 보기 수와 distractor_notes 수, 보기 길이 균형(정답만 길거나 짧은 경우 포함), 정답 분포,
-     답 인덱스 범위, 지문 단어 수 일치, 지문 묶음(passage_group) 일관성
-  3. --compare: 원본과 생성 결과의 형식 일치 (schema.md의 "비슷함" 표). 보기 표기·발문 언어·지문 묶음 구조 포함
+file.json 하나만 주면 그 파일의 role에 맞춰 검사합니다.
+  - role: source     구조와 유형별 담는 법만 검사합니다. 작성 규칙은 적용하지 않습니다(원본은 고칠 수 없는 기준).
+  - role: generated  위에 더해 정답·해설·오답 이유의 존재와 작성 규칙(보기 길이, 정답 분포 등)을 검사합니다.
+
+--compare  두 파일을 각각 검사한 뒤, 형식이 같은지 비교합니다 (schema.md "원본과 생성물의 형식 비교").
+--stats    지문 단어 수, 문장 평균 길이, 보기 낱말 수를 문항별로 출력합니다. JSON에 적지 않고 여기서 봅니다.
 
 종료 코드: 0 통과, 1 실패. 실패 항목은 한 줄씩 출력합니다.
 """
 import json
+import re
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
 
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8")
+
 HERE = Path(__file__).parent
-LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+LEVELS = ["A1", "A2", "A2+", "B1", "B1+", "B2", "B2+", "C1", "C2"]
+WARNINGS: list[str] = []   # 실패로 세지 않고 알리기만 하는 항목
+
+SUBTYPES = {
+    "cloze": {"single-blank", "multi-blank", "word-bank"},
+    "vocab": {"word-list", "meaning-write", "synonym-match", "definition-match"},
+    "reading": {"main-idea", "title", "blank-inference", "detail", "reference", "implied-meaning",
+                "inference", "order", "insertion", "irrelevant", "summary"},
+}
+POSITION = {"insertion", "irrelevant"}            # 보기가 지문 안의 위치·번호 기호
+COMBO = {"order", "multi-blank", "summary"}       # 보기가 조합
+MATCH = {"synonym-match", "definition-match"}
+NO_ANSWER = {"word-list", "meaning-write"}
+NO_OPTIONS = MATCH | NO_ANSWER | {"word-bank"}
+BLANK = re.compile(r"_{3,}")
+WORD = re.compile(r"[A-Za-z]+(?:['’\-][A-Za-z]+)*")
+MARKER = re.compile(r"\((?:[A-Za-z]|\d{1,3})\)")
+COMBO_SPLIT = re.compile(r"\s*[–—－]\s*|\s+-\s+")
+
+
+def en_words(text: str) -> list[str]:
+    return WORD.findall(MARKER.sub(" ", text or ""))
+
+
+def passage_words(it: dict) -> int:
+    return len(en_words(it.get("given", ""))) + len(en_words(it.get("passage", "")))
+
+
+def opt_len(o: str) -> int:
+    return len(o.split())
 
 
 def load(p: str) -> dict:
-    return json.loads(Path(p).read_text(encoding="utf-8"))
+    try:
+        return json.loads(Path(p).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        sys.exit(f"파일 없음: {p}")
+    except json.JSONDecodeError as e:
+        sys.exit(f"JSON 형식 오류 ({p}): {e}")
 
 
 def schema_errors(exam: dict) -> list[str]:
@@ -33,82 +75,312 @@ def schema_errors(exam: dict) -> list[str]:
         return ["jsonschema 미설치: pip install jsonschema"]
     schema = json.loads((HERE / "exam.schema.json").read_text(encoding="utf-8"))
     v = jsonschema.Draft202012Validator(schema)
-    return [f"schema: {'/'.join(str(x) for x in e.path)}: {e.message}" for e in v.iter_errors(exam)]
+    out = []
+    for e in sorted(v.iter_errors(exam), key=lambda e: list(e.path)):
+        where = "/".join(str(x) for x in e.path) or "(최상위)"
+        out.append(f"schema: {where}: {e.message}")
+    return out
 
 
-def rule_errors(exam: dict) -> list[str]:
+def needs_answers(exam: dict) -> bool:
+    return exam["role"] == "generated" or exam.get("answer_key") in ("provided", "solved")
+
+
+def structure_errors(exam: dict) -> list[str]:
+    """두 역할 모두에 적용: 유형별 담는 법."""
     errs: list[str] = []
-    answers = Counter()
-    mc_count = 0
-    for it in exam["items"]:
-        tag = f"item {it['id']}"
+    items = exam["items"]
+    role = exam["role"]
+    if role == "source" and "answer_key" not in exam:
+        errs.append("source에는 answer_key(provided/solved/none)가 필요함")
+    if [it["id"] for it in items] != list(range(1, len(items) + 1)):
+        errs.append(f"문항 id는 1부터 순서대로여야 함: {[it['id'] for it in items]}")
+
+    secs = exam.get("sections")
+    if secs:
+        expect = 1
+        for s in secs:
+            if s["first"] != expect or s["last"] < s["first"]:
+                errs.append(f"sections: '{s['title']}'의 범위 {s['first']}~{s['last']}가 앞 영역과 이어지지 않음")
+            expect = s["last"] + 1
+        if expect != len(items) + 1:
+            errs.append(f"sections가 문항 1~{len(items)}를 빠짐없이 덮지 않음 (마지막 {expect - 1})")
+
+    want_answer = needs_answers(exam)
+    for it in items:
+        tag, st = f"item {it['id']}", it["subtype"]
+        if st not in SUBTYPES[it["type"]]:
+            errs.append(f"{tag}: type {it['type']}에 subtype {st}는 올 수 없음")
+            continue
         opts = it.get("options")
-        if opts:
-            mc_count += 1
-            if isinstance(it["answer"], int):
-                if not 0 <= it["answer"] < len(opts):
-                    errs.append(f"{tag}: answer 인덱스 {it['answer']}가 보기 범위 밖")
-                else:
-                    answers[it["answer"]] += 1
+        passage = it.get("passage", "")
+
+        def need(field: str, why: str = "") -> bool:
+            if field not in it:
+                errs.append(f"{tag}: {st}에는 {field}가 필요함{(' (' + why + ')') if why else ''}")
+                return False
+            return True
+
+        def forbid(field: str, why: str) -> None:
+            if field in it:
+                errs.append(f"{tag}: {st}에는 {field}를 쓰지 않음 ({why})")
+
+        if it["type"] != "cloze" and "stem" not in it:
+            errs.append(f"{tag}: stem(발문)이 없음. 영역 지시문이 발문을 대신하는 빈칸 문항만 생략할 수 있음")
+        if st in NO_OPTIONS:
+            forbid("options", "객관식이 아님")
+        else:
+            need("options")
+        if it["type"] == "reading" or st in ("single-blank", "multi-blank", "word-bank"):
+            need("passage")
+        if "polarity" in it and st != "detail":
+            errs.append(f"{tag}: polarity는 detail에만 씀")
+        if st == "detail":
+            need("polarity", "일치하는 것이면 match, 일치하지 않는 것이면 mismatch")
+        if opts and st not in POSITION and st != "order":
+            need("option_language", "보기 언어 ko/en")
+
+        if st == "order":
+            need("given", "주어진 글")
+            for m in ("(A)", "(B)", "(C)"):
+                if m not in passage:
+                    errs.append(f"{tag}: order의 passage에 {m} 단락이 없음")
+            for o in opts or []:
+                if not re.fullmatch(r"\([A-Z]\)(-\([A-Z]\))+", o):
+                    errs.append(f"{tag}: order 보기는 '(B)-(C)-(A)' 형식이어야 함: {o!r}")
+        elif st == "insertion":
+            need("given", "주어진 문장")
+        if st in POSITION:
+            for o in opts or []:
+                if o not in passage:
+                    errs.append(f"{tag}: {st}의 보기 {o!r}가 지문 안에 없음 (보기는 지문에 박힌 기호여야 함)")
+        if st == "summary":
+            if need("prompt_text", "요약문") and not BLANK.search(it["prompt_text"]):
+                errs.append(f"{tag}: 요약문(prompt_text)에 빈칸(____)이 없음")
+        if st == "single-blank" and passage:
+            if not BLANK.search(passage):
+                errs.append(f"{tag}: 지문에 빈칸(____)이 없음")
+            if it.get("passage_group") and f"({it['id']})" not in passage:
+                errs.append(f"{tag}: 묶음 지문의 빈칸에는 문항 번호를 붙임. 지문에 '({it['id']})'가 없음")
+        if st == "multi-blank" and passage and "(A)" not in passage:
+            errs.append(f"{tag}: multi-blank 지문에 (A) 자리가 없음")
+        if st == "word-bank":
+            need("word_bank", "보기 상자")
+            n_blank = len(BLANK.findall(passage))
+            if passage and n_blank == 0:
+                errs.append(f"{tag}: 지문에 빈칸(____)이 없음")
+            if "word_bank" in it and len(it["word_bank"]) <= n_blank:
+                errs.append(f"{tag}: 보기 상자 낱말({len(it['word_bank'])})이 빈칸 수({n_blank})보다 많아야 함")
+        if st in MATCH:
+            forbid("vocab_entries", "문제지에 뜻이 함께 찍혀 답이 드러남. match_left/match_right를 씀")
+            if need("match_left") and need("match_right"):
+                L, R = it["match_left"], it["match_right"]
+                if len(R) < len(L):
+                    errs.append(f"{tag}: match_right({len(R)})가 match_left({len(L)})보다 짧음")
+                for key, arr in (("match_left_labels", L), ("match_right_labels", R)):
+                    if key in it and len(it[key]) != len(arr):
+                        errs.append(f"{tag}: {key} 길이 {len(it[key])} ≠ 항목 수 {len(arr)}")
+        if st == "word-list":
+            if need("vocab_entries") and need("vocab_columns", "표에 나오는 열"):
+                for e in it["vocab_entries"]:
+                    for col in it["vocab_columns"]:
+                        if not e.get(col):
+                            errs.append(f"{tag}: '{e['word']}'에 {col} 열 값이 없음")
+        if st == "meaning-write":
+            need("vocab_entries")
+        if st != "word-list":
+            forbid("vocab_columns", "word-list 전용")
+
+        # 빈칸 문제의 분류 기준: 보기 낱말 수 중앙값
+        if opts and st in ("single-blank", "blank-inference"):
+            med = statistics.median(opt_len(o) for o in opts)
+            if st == "single-blank" and med >= 3:
+                errs.append(f"{tag}: 보기가 구·절(중앙값 {med:g}낱말)이므로 reading/blank-inference로 분류")
+            if st == "blank-inference" and med <= 2:
+                errs.append(f"{tag}: 보기가 단어(중앙값 {med:g}낱말)이므로 cloze/single-blank로 분류")
+
+        # 정답의 형태
+        if st in NO_ANSWER:
+            continue
+        if "answer" not in it:
+            if want_answer:
+                errs.append(f"{tag}: answer가 없음")
+            continue
+        a = it["answer"]
+        if st == "word-bank":
+            n_blank = len(BLANK.findall(passage))
+            if not (isinstance(a, list) and all(isinstance(x, str) for x in a)):
+                errs.append(f"{tag}: word-bank의 answer는 빈칸 순서대로 낱말 배열")
             else:
-                errs.append(f"{tag}: 객관식인데 answer가 정수가 아님")
-            notes = it.get("distractor_notes") or []
-            if it["type"] == "reading" and len(notes) != len(opts) - 1:
-                errs.append(f"{tag}: distractor_notes {len(notes)}개, 보기 수-1={len(opts) - 1}개여야 함")
-            lens = [len(o.split()) for o in opts]
-            if max(lens) > 2 * max(min(lens), 1) and max(lens) - min(lens) >= 3:
-                errs.append(f"{tag}: 보기 길이 불균형 (단어 수 {lens})")
-            # 정답만 혼자 길거나 짧은 경우 (round-00 02-05: 정답 10단어, 나머지 6~7단어)
-            if isinstance(it["answer"], int) and 0 <= it["answer"] < len(opts):
-                a_len = lens[it["answer"]]
-                others = [n for i, n in enumerate(lens) if i != it["answer"]]
-                if a_len - max(others) >= 3:
-                    errs.append(f"{tag}: 정답 보기만 김 (정답 {a_len}단어, 나머지 최대 {max(others)}단어). 길이가 단서가 됨")
-                elif min(others) - a_len >= 3:
-                    errs.append(f"{tag}: 정답 보기만 짧음 (정답 {a_len}단어, 나머지 최소 {min(others)}단어). 길이가 단서가 됨")
-        if it.get("passage") is not None:
-            actual = len(it["passage"].split())
-            declared = it.get("passage_words", actual)
-            if abs(actual - declared) > max(5, actual * 0.1):
-                errs.append(f"{tag}: passage_words={declared}, 실제 {actual}")
-        if it["type"] == "cloze" and it.get("passage") and "____" not in it["passage"] and "(A)" not in it["passage"]:
-            errs.append(f"{tag}: cloze 지문에 빈칸 표시(____ 또는 (A))가 없음")
-        if it["type"] == "vocab" and it["subtype"] == "word-list":
-            for e in it.get("vocab_entries", []):
-                if len(e["example"].split()) < 6:
-                    errs.append(f"{tag}: '{e['word']}' 예문이 너무 짧음")
-    # 지문 묶음: 같은 passage_group은 지문이 완전히 같고 번호가 이어져야 한다
+                if len(a) != n_blank:
+                    errs.append(f"{tag}: answer {len(a)}개, 빈칸 {n_blank}개")
+                bank = it.get("word_bank", [])
+                for x in a:
+                    if x not in bank:
+                        errs.append(f"{tag}: 정답 '{x}'가 보기 상자에 없음")
+                if len(set(a)) != len(a):
+                    errs.append(f"{tag}: 같은 낱말이 정답에 두 번 나옴")
+        elif st in MATCH:
+            L, R = it.get("match_left", []), it.get("match_right", [])
+            if not (isinstance(a, list) and all(isinstance(x, int) for x in a)):
+                errs.append(f"{tag}: 짝짓기의 answer는 match_left 순서대로 match_right 인덱스 배열")
+            else:
+                if len(a) != len(L):
+                    errs.append(f"{tag}: answer {len(a)}개, match_left {len(L)}개")
+                if any(not 0 <= x < len(R) for x in a):
+                    errs.append(f"{tag}: answer 인덱스가 match_right 범위를 벗어남")
+                if len(set(a)) != len(a):
+                    errs.append(f"{tag}: 같은 오른쪽 항목이 두 번 쓰임")
+        else:
+            if not isinstance(a, int):
+                errs.append(f"{tag}: 객관식의 answer는 보기 인덱스(0부터)")
+            elif opts and not 0 <= a < len(opts):
+                errs.append(f"{tag}: answer 인덱스 {a}가 보기 범위 밖")
+
+    # 지문 묶음
     groups: dict[str, list[dict]] = {}
-    for it in exam["items"]:
+    for it in items:
         if it.get("passage_group"):
             groups.setdefault(it["passage_group"], []).append(it)
     for g, members in groups.items():
-        if len({m.get("passage") for m in members}) > 1:
-            errs.append(f"passage_group {g}: 문항 {[m['id'] for m in members]}의 지문이 서로 다름")
         ids = [m["id"] for m in members]
+        if len({m.get("passage") for m in members}) > 1:
+            errs.append(f"passage_group {g}: 문항 {ids}의 지문이 서로 다름")
+        if len({m.get("footnote") for m in members}) > 1:
+            errs.append(f"passage_group {g}: 문항 {ids}의 각주가 서로 다름")
         if ids != list(range(ids[0], ids[0] + len(ids))):
             errs.append(f"passage_group {g}: 문항 번호가 이어지지 않음 {ids}")
+        for m in members[1:]:
+            if "group_instruction" in m:
+                errs.append(f"item {m['id']}: group_instruction은 묶음의 첫 문항({ids[0]})에만 적음")
+    for it in items:
+        if "group_instruction" in it and not it.get("passage_group"):
+            errs.append(f"item {it['id']}: passage_group 없이 group_instruction만 있음")
+    return errs
+
+
+def corpus_tokens(exam: dict, skip_id: int) -> set[str]:
+    toks: set[str] = set()
+    for it in exam["items"]:
+        if it["id"] == skip_id or it["type"] == "vocab":
+            continue
+        parts = [it.get("passage", ""), it.get("given", ""), it.get("prompt_text", "")]
+        parts += it.get("options") or []
+        parts += it.get("word_bank") or []
+        toks.update(w.lower() for w in en_words(" ".join(parts)))
+    return toks
+
+
+def in_corpus(word: str, toks: set[str], min_prefix: int = 3) -> bool:
+    """낱말(또는 그 활용형)이 toks 안에 있는가. 앞부분 일치로 느슨하게 본다."""
+    ws = en_words(word)
+    if not ws:
+        return True
+    w = ws[0].lower()
+    prefix = w[: max(min_prefix, len(w) - 2)]
+    return any(t.startswith(prefix) for t in toks)
+
+
+def writing_errors(exam: dict) -> list[str]:
+    """생성물에만 적용: 정답·해설의 존재와 작성 규칙."""
+    errs: list[str] = []
+    answers: Counter = Counter()
+    mc_count = 0
+    for it in exam["items"]:
+        tag, st = f"item {it['id']}", it["subtype"]
+        opts = it.get("options")
+        if st != "word-list" and st != "meaning-write" and not it.get("explanation"):
+            errs.append(f"{tag}: explanation이 없음")
+        if st == "meaning-write":
+            for e in it.get("vocab_entries", []):
+                if not e.get("meaning"):
+                    errs.append(f"{tag}: '{e['word']}'의 정답 뜻(meaning)이 없음")
+        if opts and isinstance(it.get("answer"), int) and 0 <= it["answer"] < len(opts):
+            mc_count += 1
+            answers[it["answer"]] += 1
+            if it["type"] == "reading":
+                notes = it.get("distractor_notes") or []
+                if len(notes) != len(opts) - 1:
+                    errs.append(f"{tag}: distractor_notes {len(notes)}개. 오답 보기마다 하나씩 {len(opts) - 1}개여야 함")
+            if st not in POSITION and st not in COMBO:
+                lens = [opt_len(o) for o in opts]
+                if max(lens) > 2 * max(min(lens), 1) and max(lens) - min(lens) >= 3:
+                    errs.append(f"{tag}: 보기 길이 불균형 (낱말 수 {lens})")
+                a_len = lens[it["answer"]]
+                others = [n for i, n in enumerate(lens) if i != it["answer"]]
+                if a_len - max(others) >= 3:
+                    errs.append(f"{tag}: 정답 보기만 김 (정답 {a_len}낱말, 나머지 최대 {max(others)}낱말)")
+                elif min(others) - a_len >= 3:
+                    errs.append(f"{tag}: 정답 보기만 짧음 (정답 {a_len}낱말, 나머지 최소 {min(others)}낱말)")
+        if st == "multi-blank" and opts:
+            cols = [COMBO_SPLIT.split(o.strip()) for o in opts]
+            if len({len(c) for c in cols}) != 1:
+                errs.append(f"{tag}: 조합 보기의 자리 수가 서로 다름. 자리 구분은 ' – '")
+            else:
+                for pos in range(len(cols[0])):
+                    if len({c[pos].strip().lower() for c in cols}) < 2:
+                        errs.append(f"{tag}: ({chr(65 + pos)}) 자리가 모든 보기에서 같아 검사되지 않음")
+        if st == "definition-match":
+            L, R, a = it.get("match_left", []), it.get("match_right", []), it.get("answer")
+            if isinstance(a, list) and len(a) == len(L):
+                for w, idx in zip(L, a):
+                    if isinstance(idx, int) and 0 <= idx < len(R):
+                        ws = en_words(w)
+                        if ws and in_corpus(w, {t.lower() for t in en_words(R[idx])}, min_prefix=4):
+                            errs.append(f"{tag}: '{w}'의 뜻풀이에 그 낱말 자체나 파생어가 들어 있음")
+        if st == "word-list" and "example" in (it.get("vocab_columns") or []):
+            for e in it.get("vocab_entries", []):
+                if len((e.get("example") or "").split()) < 6:
+                    errs.append(f"{tag}: '{e['word']}' 예문이 6단어 미만")
+        if st in ("reference", "implied-meaning"):
+            p = it.get("passage", "")
+            if "**" not in p and not re.search(r"[ⓐ-ⓩ]", p):
+                errs.append(f"{tag}: 지문에 대상 표시(**…** 또는 ⓐ)가 없음")
+        if it.get("words_from_passages"):
+            toks = corpus_tokens(exam, it["id"])
+            words = [e["word"] for e in it.get("vocab_entries", [])] + list(it.get("match_left", []))
+            for w in words:
+                if not in_corpus(w, toks):
+                    WARNINGS.append(f"{tag}: '{w}'가 이 문제지의 지문·보기에서 보이지 않음 (words_from_passages). "
+                                    "불규칙 변화형으로 나왔다면 무시")
     if mc_count >= 5 and answers:
         top, n = answers.most_common(1)[0]
         if n / mc_count > 0.4:
-            errs.append(f"정답 분포: 보기 {top}이 {n}/{mc_count} ({n / mc_count:.0%}). 40% 초과")
+            errs.append(f"정답 분포: {top + 1}번째 보기가 {n}/{mc_count} ({n / mc_count:.0%}). 40% 초과")
     return errs
+
+
+def check(exam: dict) -> list[str]:
+    errs = schema_errors(exam)
+    if errs:
+        return errs  # 구조가 틀리면 뒤 검사가 의미 없음
+    errs = structure_errors(exam)
+    if exam["role"] == "generated":
+        errs += writing_errors(exam)
+    return errs
+
+
+def partition(exam: dict) -> list[list[int]]:
+    g: dict[str, list[int]] = {}
+    for it in exam["items"]:
+        if it.get("passage_group"):
+            g.setdefault(it["passage_group"], []).append(it["id"])
+    return sorted(g.values())
 
 
 def compare_errors(src: dict, gen: dict) -> list[str]:
     errs: list[str] = []
-    if src.get("option_marker") != gen.get("option_marker"):
-        errs.append(f"보기 표기: 원본 {src.get('option_marker')}, 생성 {gen.get('option_marker')}")
-    if src.get("language") != gen.get("language"):
-        errs.append(f"발문 언어: 원본 {src.get('language')}, 생성 {gen.get('language')}")
-
-    def partition(exam: dict) -> list[list[int]]:
-        g: dict[str, list[int]] = {}
-        for it in exam["items"]:
-            if it.get("passage_group"):
-                g.setdefault(it["passage_group"], []).append(it["id"])
-        return sorted(g.values())
-
+    if src["role"] != "source":
+        errs.append(f"첫 파일의 role이 source가 아님: {src['role']}")
+    if gen["role"] != "generated":
+        errs.append(f"둘째 파일의 role이 generated가 아님: {gen['role']}")
+    for key, name in (("language", "발문 언어"), ("option_marker", "보기 표기")):
+        if src.get(key) != gen.get(key):
+            errs.append(f"{name}: 원본 {src.get(key)}, 생성 {gen.get(key)}")
+    s_secs = [(s["title"], s["first"], s["last"]) for s in src.get("sections", [])]
+    g_secs = [(s["title"], s["first"], s["last"]) for s in gen.get("sections", [])]
+    if s_secs != g_secs:
+        errs.append(f"영역(sections): 원본 {s_secs}, 생성 {g_secs}")
     if partition(src) != partition(gen):
         errs.append(f"지문 묶음 구조: 원본 {partition(src)}, 생성 {partition(gen)}")
     if len(src["items"]) != len(gen["items"]):
@@ -118,39 +390,112 @@ def compare_errors(src: dict, gen: dict) -> list[str]:
         tag = f"item {a['id']}"
         if (a["type"], a["subtype"]) != (b["type"], b["subtype"]):
             errs.append(f"{tag}: 유형 {a['type']}/{a['subtype']} → {b['type']}/{b['subtype']}")
-        if len(a.get("options") or []) != len(b.get("options") or []):
-            errs.append(f"{tag}: 보기 수 {len(a.get('options') or [])} → {len(b.get('options') or [])}")
-        if a["points"] != b["points"]:
-            errs.append(f"{tag}: 배점 {a['points']} → {b['points']}")
-        if abs(LEVELS.index(a["level"]) - LEVELS.index(b["level"])) > 1:
-            errs.append(f"{tag}: 수준 {a['level']} → {b['level']} (한 단계 초과)")
-        pw_a, pw_b = a.get("passage_words"), b.get("passage_words")
-        if pw_a and pw_b and abs(pw_b - pw_a) > pw_a * 0.2:
-            errs.append(f"{tag}: 지문 길이 {pw_a} → {pw_b} (±20% 초과)")
+            continue
+
+        def same(field: str, name: str, f=lambda v: v) -> None:
+            va, vb = f(a.get(field)), f(b.get(field))
+            if va != vb:
+                errs.append(f"{tag}: {name} {va} → {vb}")
+
+        size = lambda v: len(v) if v else 0  # noqa: E731
+        same("options", "보기 수", size)
+        same("option_language", "보기 언어")
+        same("polarity", "일치/불일치 방향")
+        same("points", "배점")
+        same("points_per_part", "부분 배점")
+        same("match_left", "짝짓기 왼쪽 항목 수", size)
+        same("match_right", "짝짓기 오른쪽 항목 수", size)
+        same("match_left_labels", "짝짓기 왼쪽 기호")
+        same("match_right_labels", "짝짓기 오른쪽 기호")
+        same("word_bank", "보기 상자 낱말 수", size)
+        same("vocab_entries", "단어 항목 수", size)
+        same("vocab_columns", "단어집 열")
+        same("words_from_passages", "지문 출처 제약", bool)
+        same("given", "주어진 글 유무", bool)
+        same("prompt_text", "요약문 유무", bool)
+        same("footnote", "각주 유무", bool)
+        nb_a, nb_b = len(BLANK.findall(a.get("passage", ""))), len(BLANK.findall(b.get("passage", "")))
+        if nb_a != nb_b:
+            errs.append(f"{tag}: 지문 빈칸 수 {nb_a} → {nb_b}")
+        if abs(LEVELS.index(a["level"]) - LEVELS.index(b["level"])) > 2:
+            errs.append(f"{tag}: 수준 {a['level']} → {b['level']} (두 칸 초과)")
+        pw_a, pw_b = passage_words(a), passage_words(b)
+        if pw_a and abs(pw_b - pw_a) > max(5, pw_a * 0.2):
+            errs.append(f"{tag}: 지문 단어 수 {pw_a} → {pw_b} (±20%, 최소 ±5 초과)")
         if not set(a["topic_tags"]) & set(b["topic_tags"]):
-            errs.append(f"{tag}: 소재 태그 겹침 없음 {a['topic_tags']} vs {b['topic_tags']} (사용자가 다른 소재를 요청했다면 무시)")
+            errs.append(f"{tag}: 소재 태그 겹침 없음 {a['topic_tags']} vs {b['topic_tags']} (사용자가 다른 소재를 요청했으면 무시)")
     return errs
 
 
-def main() -> int:
-    args = sys.argv[1:]
-    if not args:
-        print(__doc__)
-        return 1
-    errs: list[str] = []
-    if args[0] == "--compare":
-        src, gen = load(args[1]), load(args[2])
-        errs += schema_errors(gen) + rule_errors(gen) + compare_errors(src, gen)
-    else:
-        gen = load(args[0])
-        errs += schema_errors(gen) + rule_errors(gen)
+def stats(exam: dict) -> None:
+    print(f"{exam['title']}  [{exam['role']}, {exam['language']}, {exam['option_marker']}, {exam['source_level']}]")
+    seen: set[str] = set()
+    all_sent: list[int] = []
+    print(f"{'id':>3}  {'type/subtype':<26} {'지문':>5} {'문장평균':>7}  보기 낱말 수")
+    for it in exam["items"]:
+        g = it.get("passage_group")
+        text = " ".join(x for x in (it.get("given"), it.get("passage")) if x)
+        sents = [len(en_words(s)) for s in re.split(r"(?<=[.!?])\s+", text) if len(en_words(s)) >= 3]
+        if not (g and g in seen):
+            all_sent += sents
+        if g:
+            seen.add(g)
+        avg = f"{sum(sents) / len(sents):.1f}" if sents else "-"
+        opts = it.get("options")
+        o = str([opt_len(x) for x in opts]) if opts else ""
+        extra = ""
+        if "word_bank" in it:
+            extra = f"보기 상자 {len(it['word_bank'])}, 빈칸 {len(BLANK.findall(it.get('passage', '')))}"
+        if "match_left" in it:
+            extra = f"짝 {len(it['match_left'])} : {len(it['match_right'])}"
+        if "vocab_entries" in it:
+            extra = f"단어 {len(it['vocab_entries'])}개"
+        print(f"{it['id']:>3}  {it['type'] + '/' + it['subtype']:<26} {passage_words(it) or '-':>5} {avg:>7}  {o}{extra}"
+              f"{'  [' + g + ']' if g else ''}")
+    if all_sent:
+        print(f"\n전체 문장 평균 길이 {sum(all_sent) / len(all_sent):.1f}단어 ({len(all_sent)}문장). "
+              "수준 판단은 references/subject-english.md 1절 참고")
+
+
+def report(errs: list[str]) -> int:
     if errs:
         print(f"실패 {len(errs)}건")
         for e in errs:
             print(" -", e)
-        return 1
-    print("통과")
-    return 0
+    else:
+        print("통과")
+    if WARNINGS:
+        print(f"주의 {len(WARNINGS)}건 (실패로 세지 않음)")
+        for w in WARNINGS:
+            print(" -", w)
+    return 1 if errs else 0
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0 if args else 1
+    if args[0] == "--stats":
+        if len(args) < 2:
+            print(__doc__)
+            return 1
+        exam = load(args[1])
+        errs = schema_errors(exam)
+        if errs:
+            return report(errs)
+        stats(exam)
+        return 0
+    if args[0] == "--compare":
+        if len(args) < 3:
+            print(__doc__)
+            return 1
+        src, gen = load(args[1]), load(args[2])
+        errs = [f"[원본] {e}" for e in check(src)] + [f"[생성] {e}" for e in check(gen)]
+        if not any(e.startswith(("[원본] schema", "[생성] schema")) for e in errs):
+            errs += [f"[비교] {e}" for e in compare_errors(src, gen)]
+        return report(errs)
+    return report(check(load(args[0])))
 
 
 if __name__ == "__main__":

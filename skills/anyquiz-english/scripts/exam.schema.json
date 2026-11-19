@@ -1,8 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AnyQuiz exam",
+  "title": "AnyQuiz exam v2",
+  "description": "구조와 값의 범위만 정의한다. 역할(source/generated)별 필수 항목과 작성 규칙은 validate_schema.py가 검사한다.",
   "type": "object",
   "required": [
+    "schema_version",
+    "role",
     "title",
     "mode",
     "language",
@@ -12,6 +15,22 @@
   ],
   "additionalProperties": false,
   "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "role": {
+      "enum": [
+        "source",
+        "generated"
+      ]
+    },
+    "answer_key": {
+      "enum": [
+        "provided",
+        "solved",
+        "none"
+      ]
+    },
     "title": {
       "type": "string",
       "minLength": 1
@@ -29,6 +48,12 @@
         "en"
       ]
     },
+    "explanation_language": {
+      "enum": [
+        "ko",
+        "en"
+      ]
+    },
     "option_marker": {
       "enum": [
         "circled",
@@ -37,18 +62,37 @@
       ]
     },
     "source_level": {
-      "enum": [
-        "A1",
-        "A2",
-        "B1",
-        "B2",
-        "C1",
-        "C2"
-      ]
+      "$ref": "#/$defs/level"
     },
-    "total_points": {
-      "type": "number",
-      "minimum": 0
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "first",
+          "last"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instruction": {
+            "type": "string"
+          },
+          "first": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "last": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
     },
     "items": {
       "type": "array",
@@ -59,6 +103,19 @@
     }
   },
   "$defs": {
+    "level": {
+      "enum": [
+        "A1",
+        "A2",
+        "A2+",
+        "B1",
+        "B1+",
+        "B2",
+        "B2+",
+        "C1",
+        "C2"
+      ]
+    },
     "item": {
       "type": "object",
       "required": [
@@ -67,10 +124,7 @@
         "subtype",
         "level",
         "points",
-        "topic_tags",
-        "stem",
-        "answer",
-        "explanation"
+        "topic_tags"
       ],
       "additionalProperties": false,
       "properties": {
@@ -91,35 +145,32 @@
             "multi-blank",
             "word-bank",
             "word-list",
+            "meaning-write",
             "synonym-match",
             "definition-match",
             "main-idea",
             "title",
             "blank-inference",
             "detail",
+            "reference",
+            "implied-meaning",
+            "inference",
             "order",
             "insertion",
             "irrelevant",
-            "summary",
-            "meaning-write",
-            "reference",
-            "implied-meaning",
-            "inference"
+            "summary"
           ]
         },
         "level": {
-          "enum": [
-            "A1",
-            "A2",
-            "B1",
-            "B2",
-            "C1",
-            "C2"
-          ]
+          "$ref": "#/$defs/level"
         },
         "points": {
           "type": "number",
           "minimum": 0
+        },
+        "points_per_part": {
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "topic_tags": {
           "type": "array",
@@ -130,34 +181,77 @@
             "pattern": "^[a-z0-9-]+$"
           }
         },
-        "passage": {
-          "type": "string"
+        "stem": {
+          "type": "string",
+          "minLength": 1
         },
-        "passage_words": {
-          "type": "integer",
-          "minimum": 0
+        "passage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "given": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "footnote": {
+          "type": "string",
+          "minLength": 1
         },
         "passage_group": {
           "type": "string",
           "pattern": "^[a-z0-9-]+$"
         },
-        "stem": {
+        "group_instruction": {
           "type": "string",
           "minLength": 1
         },
         "options": {
           "type": "array",
-          "minItems": 4,
+          "minItems": 2,
           "maxItems": 5,
           "items": {
             "type": "string",
             "minLength": 1
           }
         },
+        "option_language": {
+          "enum": [
+            "ko",
+            "en"
+          ]
+        },
+        "polarity": {
+          "enum": [
+            "match",
+            "mismatch"
+          ]
+        },
         "answer": {
-          "type": [
-            "integer",
-            "string"
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           ]
         },
         "explanation": {
@@ -167,18 +261,72 @@
         "distractor_notes": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
+        },
+        "word_bank": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "match_left": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "match_right": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "match_left_labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "match_right_labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "vocab_columns": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "word",
+              "pos",
+              "meaning",
+              "example",
+              "derived"
+            ]
+          }
+        },
+        "words_from_passages": {
+          "type": "boolean"
         },
         "vocab_entries": {
           "type": "array",
+          "minItems": 1,
           "items": {
             "type": "object",
             "required": [
-              "word",
-              "pos",
-              "meaning_ko",
-              "example"
+              "word"
             ],
             "additionalProperties": false,
             "properties": {
@@ -189,15 +337,11 @@
               "pos": {
                 "type": "string"
               },
-              "meaning_ko": {
-                "type": "string"
-              },
-              "meaning_en": {
+              "meaning": {
                 "type": "string"
               },
               "example": {
-                "type": "string",
-                "minLength": 1
+                "type": "string"
               },
               "derived": {
                 "type": "array",
@@ -208,61 +352,7 @@
             }
           }
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "reading"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "passage",
-              "passage_words",
-              "options",
-              "distractor_notes"
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "cloze"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "passage",
-              "passage_words"
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "vocab"
-              },
-              "subtype": {
-                "enum": [
-                  "word-list",
-                  "meaning-write"
-                ]
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "vocab_entries"
-            ]
-          }
-        }
-      ]
+      }
     }
   }
 }

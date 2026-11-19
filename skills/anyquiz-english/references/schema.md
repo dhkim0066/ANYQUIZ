@@ -1,143 +1,181 @@
-# 문항 JSON 스키마
+# 문항 JSON 스키마 (v2)
 
-분석 단계의 출력이자 생성 단계의 입력입니다. 원본 문제지(`format` 모드)와 생성 결과 모두 같은 스키마를 씁니다. 두 JSON을 나란히 비교하면 "비슷함"이 수치로 보입니다.
+문제지 한 장을 JSON 하나로 적습니다. 같은 구조를 두 가지 역할로 씁니다.
 
-기계 검증용 JSON Schema는 `scripts/exam.schema.json`에 있고, `scripts/validate_schema.py`가 그 파일로 검사합니다.
+| `role` | 무엇을 적는가 | 필수 범위 |
+| :- | :- | :- |
+| `source` | 원본 문제지를 **분석한** 결과 | 형식 정보만. 원본에 없는 것(오답 이유, 해설, 예문)은 **지어 넣지 않습니다** |
+| `generated` | 새로 **만든** 문제지 | 형식 정보 + 정답 + 해설 + 오답 이유 |
+
+두 JSON을 나란히 비교하면 "형식이 같은가"가 코드로 판정됩니다. 기계 검증용 정의는 `scripts/exam.schema.json`에 있고, 역할별 필수 항목과 작성 규칙은 `scripts/validate_schema.py`가 검사합니다.
+
+**세지 말고 스크립트에 맡깁니다.** 지문 단어 수, 보기 길이, 문장 평균 길이는 JSON에 적지 않습니다. `validate_schema.py --stats file.json`이 계산해 보여 줍니다.
 
 ## 최상위
 
 ```json
 {
-  "title": "2학년 1학기 중간고사 영어",
+  "schema_version": 2,
+  "role": "source",
+  "answer_key": "provided",
+  "title": "중학교 1학년 내신 영어 연습지",
   "mode": "format",
   "language": "ko",
+  "explanation_language": "ko",
   "option_marker": "circled",
-  "source_level": "B1",
-  "total_points": 100,
+  "source_level": "A2",
+  "sections": [
+    {"title": "Ⅰ. 독해", "first": 1, "last": 6},
+    {"title": "Ⅱ. 빈칸", "first": 7, "last": 9},
+    {"title": "Ⅲ. 어휘", "first": 10, "last": 10}
+  ],
   "items": [ ... ]
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
+| 필드 | 값 | 필수 | 설명 |
 | :- | :- | :- | :- |
-| `title` | string | 예 | 문제지 제목 |
-| `mode` | `format` \| `passage` \| `vocab` | 예 | 생성 모드 |
-| `language` | `ko` \| `en` | 예 | 발문·해설 언어. 보기 번호 표기와는 무관 |
-| `option_marker` | `circled` \| `letter` \| `number` | 예 | 보기 번호 표기. `circled` ①②③, `letter` (A)(B)(C), `number` (1)(2)(3). `format` 모드는 **원본 표기 그대로**. 원본이 없으면 사용자 지정, 없으면 `circled` |
-| `source_level` | `A1`~`C2` | 예 | 전체 수준 (CEFR) |
-| `total_points` | number | 아니오 | 총점. 없으면 문항 배점 합 |
-| `items` | array | 예 | 문항 배열. 1개 이상 |
+| `schema_version` | `2` | 예 | |
+| `role` | `source` \| `generated` | 예 | 위 표 |
+| `answer_key` | `provided` \| `solved` \| `none` | source만 예 | 원본 정답의 출처. `provided`: 원본에 정답지가 있었음. `solved`: 정답지가 없어 분석 단계가 직접 풂. `none`: 정답을 적지 않음. **새 문제를 만드는 데 원본 정답은 필요 없으므로 `none`이어도 진행합니다** |
+| `title` | 문자열 | 예 | 문제지 제목. `format` 모드의 생성물은 원본 제목을 그대로 씁니다 |
+| `mode` | `format` \| `passage` \| `vocab` | 예 | |
+| `language` | `ko` \| `en` | 예 | **발문** 언어 |
+| `explanation_language` | `ko` \| `en` | 아니오 | 해설 언어. 없으면 `language`와 같음. 영어 발문에 한국어 해설인 문제지는 `language: en`, `explanation_language: ko` |
+| `option_marker` | `circled` \| `letter` \| `number` | 예 | 보기 번호 표기. ①②③ / (A)(B)(C) / (1)(2)(3). `format` 모드는 원본 그대로. 원본이 없으면 사용자 지정, 없으면 `circled` |
+| `source_level` | `A1` `A2` `A2+` `B1` `B1+` `B2` `B2+` `C1` `C2` | 예 | 전체 수준 |
+| `sections` | 배열 | 아니오 | 영역(Part) 구분. 원본에 영역 제목이 있으면 적습니다. 문항 전체를 빠짐없이, 겹치지 않게, 순서대로 덮어야 합니다 |
+| `items` | 배열 | 예 | 문항. 1개 이상 |
 
-## 문항 (`items[]`)
+`sections[]`의 항목: `title`(영역 제목, 원본 그대로), `instruction`(영역 공통 지시문, 선택), `first`·`last`(그 영역의 첫·마지막 문항 번호).
 
-```json
-{
-  "id": 3,
-  "type": "reading",
-  "subtype": "blank-inference",
-  "level": "B1",
-  "points": 3,
-  "topic_tags": ["environment", "recycling"],
-  "passage": "Plastic waste has become ...",
-  "passage_words": 142,
-  "stem": "다음 빈칸에 들어갈 말로 가장 적절한 것은?",
-  "options": ["...", "...", "...", "...", "..."],
-  "answer": 2,
-  "explanation": "두 번째 문단에서 ...",
-  "distractor_notes": ["①은 지문과 반대", "③은 언급 없음", "④는 부분 정보", "⑤는 범위 초과"]
-}
-```
+출력할 때 이름·날짜·점수 줄과 영역별 배점표는 스크립트가 `sections`와 `points`에서 만듭니다. JSON에 따로 적지 않습니다.
 
-| 필드 | 타입 | 필수 | 설명 |
-| :- | :- | :- | :- |
-| `id` | integer | 예 | 1부터 순번 |
-| `type` | `cloze` \| `vocab` \| `reading` | 예 | 문제 유형 |
-| `subtype` | string | 예 | 유형 세부. 아래 표 참고 |
-| `level` | `A1`~`C2` | 예 | 문항 수준 |
-| `points` | number | 예 | 배점 |
-| `topic_tags` | string[] | 예 | 소재 태그 2~4개, 영어 소문자 |
-| `passage` | string | reading·cloze는 예 | 지문. vocab은 생략 가능 |
-| `passage_words` | integer | passage 있으면 예 | 지문 단어 수 |
-| `passage_group` | string | 아니오 | 지문 하나에 문항이 여러 개 딸릴 때의 묶음 이름(예: `"g1"`). 같은 묶음의 문항은 `passage`가 완전히 같아야 하고 서로 이어진 번호여야 함. 출력할 때 지문은 묶음 첫 문항 앞에 한 번만 나옴 |
-| `stem` | string | 예 | 발문 |
-| `options` | string[] | 객관식은 예 | 보기. 4개 또는 5개 |
-| `answer` | integer \| string | 예 | 객관식은 보기 인덱스(0부터), 주관식은 정답 문자열 |
-| `explanation` | string | 예 | 해설 두 문장 이내 |
-| `distractor_notes` | string[] | 객관식은 예 | 오답 보기마다 한 구절. 길이 = options 수 − 1 |
-| `vocab_entries` | array | vocab은 예 | 아래 단어집 항목 |
+## 문항 공통 필드
 
-## subtype 목록
+| 필드 | 타입 | source | generated | 설명 |
+| :- | :- | :- | :- | :- |
+| `id` | 정수 | 예 | 예 | 1부터 순번 |
+| `type` | `cloze` \| `vocab` \| `reading` | 예 | 예 | |
+| `subtype` | 아래 표 | 예 | 예 | |
+| `level` | 수준 값 | 예 | 예 | 문항 수준 |
+| `points` | 숫자 | 예 | 예 | 문항 전체 배점. 배점이 없으면 0 |
+| `points_per_part` | 숫자 | 해당 시 | 해당 시 | 짝·빈칸마다 부분 점수를 주는 문항의 단위 배점 (예: 8쌍 × 2점이면 2) |
+| `topic_tags` | 문자열 배열 | 예 | 예 | 소재 태그 1~4개, 영어 소문자 |
+| `stem` | 문자열 | 예 (빈칸 문항은 선택) | 예 (빈칸 문항은 선택) | 발문. 영역 지시문이나 묶음 안내문이 발문을 대신하는 빈칸 문항(토익형 등)은 생략합니다. **`format` 모드는 원본 발문을 그대로** 씁니다(지문 속 고유명사가 들어간 부분만 바꿈). 번호와 배점 표기는 넣지 않습니다 |
+| `passage` | 문자열 | 유형별 | 유형별 | 지문. 문단은 빈 줄로 나눕니다 |
+| `given` | 문자열 | 유형별 | 유형별 | 순서 문항의 "주어진 글", 삽입 문항의 "주어진 문장" |
+| `prompt_text` | 문자열 | 아니오 | 아니오 | 발문 아래, 보기 위에 놓이는 글. 요약문 문항의 요약문 등 |
+| `footnote` | 문자열 | 아니오 | 아니오 | 지문 아래 각주. 예: `*bean: 콩` |
+| `passage_group` | 문자열 | 해당 시 | 해당 시 | 지문 하나에 문항이 여러 개 딸릴 때의 묶음 이름(예: `g1`). 같은 묶음은 `passage`·`footnote`가 글자까지 같고 번호가 이어져야 합니다 |
+| `group_instruction` | 문자열 | 아니오 | 아니오 | 묶음 지문 위의 안내문(원본 그대로). 묶음의 **첫 문항에만** 적습니다. 예: `[1~3] 다음 글을 읽고 물음에 답하시오.` |
+| `options` | 문자열 배열 | 객관식 | 객관식 | 보기. 번호 표기는 넣지 않습니다 |
+| `option_language` | `ko` \| `en` | 객관식 | 객관식 | **보기** 언어. 한국어 발문에 영어 보기인 문항은 `en`. 보기가 위치·순서 기호뿐인 유형(`order`, `insertion`, `irrelevant`)은 생략 |
+| `polarity` | `match` \| `mismatch` | `detail`만 | `detail`만 | "일치하는 것"이면 `match`, "일치하지 않는 것"이면 `mismatch` |
+| `answer` | 유형별 | `answer_key`가 `none`이 아니면 | 예 | 아래 "유형별 담는 법" |
+| `explanation` | 문자열 | 아니오 | 예 | 해설 두 문장 이내. 원본에 해설이 있을 때만 source에 적습니다 |
+| `distractor_notes` | 문자열 배열 | 아니오 | 독해 객관식 | 오답 보기마다 한 구절, **보기 순서대로**(정답은 건너뜀). 길이 = 보기 수 − 1. 보기 번호는 쓰지 않습니다(스크립트가 붙임) |
+
+밑줄·굵게로 표시된 대상(지칭 추론의 `it`, 함축 의미의 인용문)은 지문 안에서 `**…**`로 감쌉니다. 원본에 ⓐ 같은 기호가 있으면 그대로 둡니다.
+
+## subtype
 
 | type | subtype | 설명 |
 | :- | :- | :- |
-| `cloze` | `single-blank` | 한 문장 또는 짧은 단락에 빈칸 하나, 보기 4~5개 |
-| `cloze` | `multi-blank` | 빈칸 (A)(B)(C)에 들어갈 말의 조합 |
-| `cloze` | `word-bank` | 보기 상자에서 골라 채우기 (주관식) |
-| `vocab` | `word-list` | 단어·품사·뜻·예문 표 |
+| `cloze` | `single-blank` | 빈칸 하나, 보기는 **단어**(한두 낱말). 연결어 빈칸 포함 |
+| `cloze` | `multi-blank` | (A)(B)(C) 각 자리의 낱말을 고르는 조합 |
+| `cloze` | `word-bank` | 보기 상자에서 골라 쓰기 (주관식) |
+| `vocab` | `word-list` | 학습용 단어집 표 |
+| `vocab` | `meaning-write` | 단어의 뜻 쓰기 (주관식) |
 | `vocab` | `synonym-match` | 유의어 짝짓기 |
-| `vocab` | `definition-match` | 영영 뜻풀이 짝짓기 |
-| `vocab` | `meaning-write` | 단어의 문맥상 우리말 뜻 쓰기 (주관식). 내신 어휘 영역의 기본형 |
+| `vocab` | `definition-match` | 뜻풀이 짝짓기 |
 | `reading` | `main-idea` | 요지·주제 |
 | `reading` | `title` | 제목 |
-| `reading` | `blank-inference` | 빈칸 추론 (지문 안 빈칸) |
-| `reading` | `detail` | 내용 일치·불일치 |
+| `reading` | `blank-inference` | 빈칸 추론. 보기는 **구·절** |
+| `reading` | `detail` | 내용 일치·불일치 (`polarity` 필수) |
+| `reading` | `reference` | 지칭 추론 |
+| `reading` | `implied-meaning` | 함축 의미 |
+| `reading` | `inference` | 내용 추론 |
 | `reading` | `order` | 글의 순서 |
 | `reading` | `insertion` | 문장 삽입 |
 | `reading` | `irrelevant` | 흐름과 무관한 문장 |
-| `reading` | `summary` | 요약문 빈칸 |
-| `reading` | `reference` | 밑줄 친 대명사·표현이 가리키는 것 (지칭 추론) |
-| `reading` | `implied-meaning` | 밑줄 친 문장·표현에 담긴 의미 (함축 의미) |
-| `reading` | `inference` | 글을 바탕으로 한 추론: 이유, 인물의 생각, 다음에 일어날 일 등 |
+| `reading` | `summary` | 요약문 완성 |
 
-새 subtype이 필요하면 이 표에 먼저 추가하고 `question-types.md`에 규칙을 씁니다.
+**빈칸 문제의 분류 기준.** 영역 제목이 아니라 보기를 봅니다. 보기 낱말 수의 중앙값이 2 이하면 `cloze/single-blank`, 3 이상이면 `reading/blank-inference`입니다. 검증기가 이 기준으로 검사합니다.
 
-### 보기가 지문 안에 있는 유형의 규약
+새 subtype이 필요하면 이 표와 아래 규약 표에 먼저 추가하고 `question-types.md`에 규칙을 씁니다.
 
-`order`(글의 순서)와 `insertion`(문장 삽입)은 보기와 지문이 다른 유형처럼 나뉘지 않습니다. 실행마다 다르게 담기지 않도록 이렇게 고정합니다.
+## 유형별 담는 법
 
-| subtype | `passage`에 담는 것 | `options`에 담는 것 | `answer` |
-| :- | :- | :- | :- |
-| `order` | 주어진 글, 그다음 `(A)` `(B)` `(C)` 단락을 **문제지에 나온 순서대로** | 순서 조합 5개. 예: `"(B)-(C)-(A)"` | 조합의 인덱스 |
-| `insertion` | **주어진 문장을 맨 앞에**, 그다음 `( ① )`~`( ⑤ )` 위치 표시가 박힌 본문 | 위치 번호만. 예: `["①","②","③","④","⑤"]` | 위치의 인덱스 |
+유형마다 무엇을 어느 필드에 담는지 고정합니다. 실행마다 다르게 담기면 형식 비교와 출력이 깨집니다.
 
-- `passage_words`는 주어진 글·문장을 포함해서 셉니다.
-- `insertion`의 `distractor_notes`에는 각 오답 위치에 넣으면 왜 어긋나는지(지시어의 대상이 없음, 뒤 문장과 연결 끊김 등)를 적습니다.
-- `insertion`의 위치 표시는 `option_marker`와 무관하게 원본 표기를 따릅니다.
+| subtype | `passage` | 그 밖의 필드 | `options` | `answer` |
+| :- | :- | :- | :- | :- |
+| 일반 객관식 (main-idea, title, detail, reference, implied-meaning, inference, blank-inference) | 지문 | | 보기 문장 | 정답 보기의 인덱스(0부터) |
+| `summary` | 지문 | `prompt_text`: 빈칸 `(A) ____`, `(B) ____`가 든 요약문 | 조합. 예: `"bottles – sounds"` | 인덱스 |
+| `single-blank` (단독) | 빈칸 `____`이 든 문장·단락 | | 단어 | 인덱스 |
+| `single-blank` (한 지문에 번호 빈칸 여러 개) | 빈칸마다 `(문항번호) ____`. 예: `(11) ____` | `passage_group`으로 묶음 | 단어 | 인덱스 |
+| `multi-blank` | 자리마다 `(A)【umbrella / notebook】` 또는 `(A) ____` | | 조합. 자리 구분은 ` – `. 예: `"umbrella – close – dry"` | 인덱스 |
+| `word-bank` | 빈칸마다 `____`. 원본에 `(가)` 같은 라벨이 있으면 `(가) ____` | `word_bank`: 보기 상자의 낱말 배열 | 없음 | **빈칸 순서대로 낱말 배열**. 예: `["nose","scarf","hat","arms"]` |
+| `order` | `(A) …`, `(B) …`, `(C) …` 단락을 문제지에 나온 순서대로, 빈 줄로 구분 | `given`: 주어진 글 | 순서 조합. 구분은 `-`. 예: `"(B)-(C)-(A)"` | 인덱스 |
+| `insertion` | `( ① )`~`( ⑤ )` 위치 표시가 박힌 본문 | `given`: 주어진 문장 | 위치 기호만. 예: `["①","②","③","④","⑤"]` | 인덱스 |
+| `irrelevant` | 문장 앞에 `①`~`④` 번호가 붙은 본문 | | 번호 기호만 | 인덱스 |
+| `synonym-match`, `definition-match` | 없음 | `match_left`: 왼쪽 낱말 배열. `match_right`: 오른쪽 배열(오답을 섞어 더 길어도 됨). `match_left_labels`·`match_right_labels`: 원본의 기호(예: `["(가)","(나)"]`, `["A","B"]`), 선택 | 없음 | **`match_left` 순서대로 `match_right`의 인덱스 배열**. 예: `[5,7,2]` |
+| `word-list` | 없음 | `vocab_entries`, `vocab_columns` | 없음 | 없음 |
+| `meaning-write` | 없음 | `vocab_entries` (`word`와 `meaning`) | 없음 | 없음. 정답은 각 항목의 `meaning` |
 
-## 단어집 항목 (`vocab_entries[]`)
+- 보기가 위치·번호 기호뿐인 `insertion`·`irrelevant`는 출력할 때 보기 목록을 찍지 않습니다. 기호가 이미 지문 안에 있기 때문입니다.
+- 짝짓기 유형에 `vocab_entries`를 쓰지 않습니다. 쓰면 문제지에 뜻이 함께 찍혀 답이 드러납니다.
+- `word-list`는 문항 번호 없이 출력됩니다. 배점이 없으면 `points: 0`.
+
+## 단어 항목 (`vocab_entries[]`)
 
 ```json
-{
-  "word": "sustain",
-  "pos": "v.",
-  "meaning_ko": "지속하다, 유지하다",
-  "example": "The soil cannot sustain crops without water.",
-  "derived": ["sustainable (a.)", "sustainability (n.)"]
-}
+{"word": "sustain", "pos": "v.", "meaning": "지속하다, 유지하다", "example": "The soil cannot sustain crops without regular rain."}
 ```
 
-| 필드 | 필수 | 설명 |
-| :- | :- | :- |
-| `word` | 예 | 표제어 (원형) |
-| `pos` | 예 | 품사 약어 |
-| `meaning_ko` | 예 | 한국어 뜻, 쉼표로 2개까지 |
-| `example` | 예 | 예문 한 문장. 원본 지문 문장을 그대로 쓰지 않음 |
-| `derived` | 아니오 | 파생어 |
+| 필드 | 설명 |
+| :- | :- |
+| `word` | 표제어(기본형). 항상 필수 |
+| `pos` | 품사. 원본 표기를 따름 (`v.`, `동사` 등) |
+| `meaning` | 뜻. 원본이 한국어 뜻이면 한국어, 영어 뜻풀이면 영어 |
+| `example` | 예문. 원본 지문의 문장을 그대로 쓰지 않음 |
+| `derived` | 파생어 배열 |
 
-## 원본과 생성 결과의 "비슷함" 판정
+`vocab_columns`는 표에 나오는 열을 순서대로 적습니다. 값은 `word`, `pos`, `meaning`, `example`, `derived` 중에서 고릅니다. **원본에 없는 열을 생성물에 더하지 않습니다.** 원본 단어집이 단어·품사·뜻 세 열이면 생성물도 세 열입니다.
 
-`format` 모드에서 생성 JSON은 원본 JSON과 다음이 같아야 합니다.
+`words_from_passages: true`는 "이 문항의 단어는 같은 문제지의 지문에 나온 것"이라는 제약입니다. 원본이 그렇다면 source에 적고, 생성물은 **새로 쓴 지문**에서 단어를 뽑습니다. 검증기가 실제로 지문에 있는지 확인합니다.
+
+## 원본과 생성물의 형식 비교
+
+`validate_schema.py --compare source.json generated.json`이 다음을 검사합니다.
 
 | 항목 | 기준 |
 | :- | :- |
-| `items` 길이 | 동일 |
-| `option_marker` | 동일 |
-| `passage_group` 묶음 구조 | 동일 (어느 문항끼리 지문을 공유하는지) |
-| 각 문항의 `type`, `subtype` | 동일 (순서 포함) |
-| 각 문항의 `options` 길이 | 동일 |
-| 각 문항의 `points` | 동일 |
-| `level` | 같거나 한 단계 이내 |
-| `passage_words` | 원본의 ±20% |
-| `topic_tags` | 1개 이상 겹치거나, 사용자가 다른 소재를 요청한 경우 무시 |
+| `language`, `option_marker` | 동일 |
+| `sections` | 개수, 제목, 문항 범위 동일 |
+| 문항 수 | 동일 |
+| 문항별 `type`, `subtype` | 동일 (순서 포함) |
+| 문항별 보기 수, `option_language`, `polarity` | 동일 |
+| 문항별 `points`, `points_per_part` | 동일 |
+| 문항별 수준 | 두 칸 이내 (예: B1 ↔ B2는 허용, A2 ↔ B2는 불가) |
+| 지문 단어 수 (`given` 포함, 스크립트가 셈) | 원본의 ±20%. 짧은 지문은 ±5단어까지 허용 |
+| `passage_group` 묶음 구조 | 동일 |
+| 짝짓기의 좌·우 항목 수와 기호 | 동일 |
+| `word_bank` 낱말 수와 빈칸 수 | 동일 |
+| 단어 항목 수, `vocab_columns`, `words_from_passages` | 동일 |
+| `topic_tags` | 1개 이상 겹침 (사용자가 다른 소재를 요청했으면 무시) |
 
-`validate_schema.py --compare source.json generated.json`이 이 표를 검사합니다.
+정답 위치, 지문 내용, 보기 내용은 비교하지 않습니다. 그것은 달라야 하는 부분입니다.
+
+## 생성물에만 적용하는 작성 규칙
+
+원본은 고칠 수 없는 기준이므로 아래 검사는 `role: generated`에만 적용합니다.
+
+- 보기 길이 균형: 가장 긴 보기가 가장 짧은 보기의 2배를 넘으면서 3단어 이상 차이 나면 실패
+- 정답만 3단어 이상 길거나 짧으면 실패
+- 객관식이 5문항 이상일 때 같은 정답 번호가 40%를 넘으면 실패
+- `multi-blank`: 자리마다 보기 전체에 서로 다른 낱말이 두 가지 이상 나와야 함 (한 자리가 모든 보기에서 같으면 그 자리는 검사되지 않음)
+- `definition-match`: 뜻풀이에 그 낱말 자체를 쓰지 않음
+- `word-list`의 예문은 6단어 이상
+- `reference`·`implied-meaning`: 지문에 `**…**` 또는 ⓐ류 표시가 있어야 함
