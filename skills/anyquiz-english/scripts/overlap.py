@@ -3,6 +3,10 @@
 
 사용법:
     python3 overlap.py source.txt generated.json [--n 6] [--threshold 0.15]
+    python3 overlap.py other-run.json generated.json      # 다른 실행의 생성물과 비교
+
+첫 인자가 원본 텍스트(.txt, .md)면 "원본을 베꼈는가"를, 다른 실행의 생성물(.json)이면
+"실행끼리 같은 글이 나오는가"를 잽니다. 출력의 (N n-gram)은 겹친 여섯 낱말 묶음의 개수입니다.
 
 측정 방법:
   생성물의 각 텍스트(지문, 주어진 글, 요약문, 보기, 단어집 예문, 짝짓기 뜻풀이)를 단어 n-gram(기본 6)으로
@@ -40,6 +44,15 @@ def ratio(text: str, src_grams: set, n: int) -> tuple[float, int]:
     return hit / len(g), hit
 
 
+def item_text(it: dict) -> str:
+    parts: list[str] = [it.get(k, "") for k in ("given", "passage", "prompt_text")]
+    if it.get("subtype") not in SYMBOL_OPTIONS:
+        parts += it.get("options") or []
+    parts += [e.get("example", "") for e in it.get("vocab_entries", [])]
+    parts += it.get("match_right") or []
+    return " ".join(parts)
+
+
 def main() -> int:
     args = sys.argv[1:]
     if len(args) < 2 or args[0] in ("-h", "--help"):
@@ -51,17 +64,15 @@ def main() -> int:
     if "--threshold" in args:
         threshold = float(args[args.index("--threshold") + 1])
 
-    src_grams = ngrams(tokens(Path(args[0]).read_text(encoding="utf-8")), n)
+    src_text = Path(args[0]).read_text(encoding="utf-8")
+    if args[0].lower().endswith(".json"):
+        src_text = " \n ".join(item_text(it) for it in json.loads(src_text)["items"])
+    src_grams = ngrams(tokens(src_text), n)
     exam = json.loads(Path(args[1]).read_text(encoding="utf-8"))
 
     failed = 0
     for it in exam["items"]:
-        parts: list[str] = [it.get(k, "") for k in ("given", "passage", "prompt_text")]
-        if it.get("subtype") not in SYMBOL_OPTIONS:
-            parts += it.get("options") or []
-        parts += [e.get("example", "") for e in it.get("vocab_entries", [])]
-        parts += it.get("match_right") or []
-        text = " ".join(parts)
+        text = item_text(it)
         r, hit = ratio(text, src_grams, n)
         flag = "FAIL" if r > threshold else "ok"
         if r > threshold:

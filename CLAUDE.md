@@ -23,7 +23,10 @@
 10. 빈칸 문제는 보기로 나눈다. 보기가 단어면 `cloze/single-blank`, 구·절이면 `reading/blank-inference`.
 11. 발문 언어, 해설 언어, 보기 언어, 보기 표기는 서로 묶지 않고 각각 원본을 따른다.
 12. 지문 단어 수·보기 길이는 JSON에 적지 않고 스크립트가 센다(`validate_schema.py --stats`).
-13. 검증에서 다시 만드는 조건은 셋이다: 정답 불일치, 보기만으로 풀림, 답이 둘 이상 가능.
+13. 검증에서 다시 만드는 조건은 둘이다: 정답 불일치, 답이 둘 이상 가능. "보기만으로 풀림"은 재지 않는다(원본도 지문 없이 30/30 풀렸다. round-02). 겉으로 드러나는 단서(정답 길이, 오답의 절대 표현, 어휘 뜻 누출)만 스크립트가 본다.
+14. 고치는 횟수는 문제지 단위로 두 번까지. 그래도 남은 문항은 빼지 않고 `review`에 적어 출력 맨 위에 "검토 필요 문항"으로 표시한다.
+15. 새 지문의 인물 이름·장소·사물·전개 방식은 모델이 고르지 않고 `pick_seeds.py`가 뽑는다. 소재는 3번대로 원본을 따른다.
+16. 발문이 없는 원본 문항은 발문 없이 담는다. 영역 지시문(`sections[].instruction`)이나 묶음 안내문이 대신한다.
 
 ## 정확도 정의 (PLAN.md 3단계 기준)
 
@@ -33,13 +36,14 @@
 | 정답 정확성 | 독립 풀이 일치 + 사람 표본 | 95% 이상 |
 | 내용 충실도 | LLM 루브릭 1~5점 | 평균 4.0 이상 |
 | 신규성 | `overlap.py` 6-gram | 15% 미만 |
+| 실행 간 다양성 | `overlap.py run-a.json run-b.json` (같은 원본의 다른 실행끼리) | 15% 미만 |
 
 측정은 pass^k (같은 입력 5회 전부 통과)로 한다. 한 번 성공률로 보고하지 않는다.
 
 ## 작업 규칙
 
 - 스킬 파일을 고친 뒤에는 반드시 `/anyquiz-english`로 실제 호출해 본다. 파일만 보고 판단하지 않는다.
-- `references/question-types.md`의 "나쁜 예"는 실제 실패 사례에서만 추가한다. 상상해서 쓰지 않는다.
+- `references/question-types.md`의 "나쁜 예"는 실제 실패 사례에서만 추가한다. 상상해서 쓰지 않는다. 스킬 파일에는 평가 세트의 문제지·문항 번호를 적지 않는다(어느 사례가 어느 문항인지는 `eval/results/`에만 적는다).
 - 평가 세트(`eval/sources/`)의 문제지는 사용자가 직접 만들어 제공한다. Claude가 만들지 않는다(생성기 편향이 기준에 들어간다).
 - `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx). `-I`에서는 같은 폴더 import가 안 된다. 스크립트끼리 코드를 나눠 쓸 때는 `export_docx.py`처럼 `importlib`로 경로를 지정해 불러온다. 출력 구조는 `render_md.py`의 `build_blocks()` 한 곳에서 만든다.
 - 새 유형이나 필드를 더할 때는 네 곳을 함께 고친다: `schema.md`의 "유형별 담는 법", `exam.schema.json`, `validate_schema.py`, `render_md.py`. 한 곳만 고치면 04번의 짝짓기처럼 문서대로 담았는데 출력이 망가진다.
@@ -47,6 +51,7 @@
   ```
   python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-source.json eval/samples/sample-generated.json
   python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-en-group.source.json eval/samples/sample-en-group.json
+  python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-nostem.source.json eval/samples/sample-nostem.json
   python3 skills/anyquiz-english/scripts/render_md.py eval/samples/sample-generated.json
   python3 skills/anyquiz-english/scripts/overlap.py eval/samples/sample-source.txt eval/samples/sample-generated.json
   ```

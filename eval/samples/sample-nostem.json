@@ -1,0 +1,110 @@
+{
+  "schema_version": 2,
+  "title": "Sample Sentence Completion Sheet (script regression)",
+  "mode": "format",
+  "language": "en",
+  "explanation_language": "ko",
+  "option_marker": "letter",
+  "source_level": "A2+",
+  "sections": [
+    {
+      "title": "Part 1. Sentence Completion",
+      "instruction": "Choose the phrase that best completes each sentence.",
+      "first": 1,
+      "last": 2
+    },
+    {
+      "title": "Part 2. Word List",
+      "first": 3,
+      "last": 3
+    }
+  ],
+  "role": "generated",
+  "items": [
+    {
+      "id": 1,
+      "type": "reading",
+      "subtype": "blank-inference",
+      "level": "A2+",
+      "points": 10,
+      "topic_tags": [
+        "daily-life",
+        "office"
+      ],
+      "passage": "The elevator was out of order all morning. Because her office is on the ninth floor, Dalia had to ____ before the meeting.",
+      "options": [
+        "wait for the next bus",
+        "bring an extra umbrella",
+        "climb a lot of stairs",
+        "turn off the lights"
+      ],
+      "option_language": "en",
+      "answer": 2,
+      "explanation": "승강기가 고장 났고 사무실이 9층이므로 계단을 걸어 올라가야 한다.",
+      "distractor_notes": [
+        "버스는 건물 안에서 이동하는 일과 무관",
+        "우산은 승강기 고장과 무관",
+        "전등을 끄는 일은 9층에 가는 것과 무관"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "reading",
+      "subtype": "blank-inference",
+      "level": "A2+",
+      "points": 10,
+      "topic_tags": [
+        "daily-life",
+        "library"
+      ],
+      "passage": "The library closes at six on Fridays. Jonas arrived at ten to six, so he could only ____ .",
+      "options": [
+        "return the books he borrowed",
+        "study there until late evening",
+        "watch a long film upstairs",
+        "join the two-hour writing class"
+      ],
+      "option_language": "en",
+      "answer": 0,
+      "explanation": "문 닫기 10분 전에 도착했으므로 짧게 끝나는 일만 할 수 있다.",
+      "distractor_notes": [
+        "6시에 닫으므로 늦게까지 공부할 수 없음",
+        "긴 영화를 볼 시간이 없음",
+        "두 시간짜리 수업은 10분 안에 들을 수 없음"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "vocab",
+      "subtype": "word-list",
+      "level": "A2+",
+      "points": 0,
+      "topic_tags": [
+        "vocabulary"
+      ],
+      "vocab_columns": [
+        "word",
+        "pos",
+        "meaning"
+      ],
+      "words_from_passages": true,
+      "vocab_entries": [
+        {
+          "word": "elevator",
+          "pos": "n.",
+          "meaning": "승강기"
+        },
+        {
+          "word": "floor",
+          "pos": "n.",
+          "meaning": "층"
+        },
+        {
+          "word": "arrive",
+          "pos": "v.",
+          "meaning": "도착하다"
+        }
+      ]
+    }
+  ]
+}

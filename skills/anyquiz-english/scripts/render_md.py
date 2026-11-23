@@ -43,6 +43,7 @@ LABELS = {
         "no": "번호", "ans": "답", "blank_head": "뜻",
         "key": "정답 및 해설", "quick": "정답",
         "accept": "문맥에 맞는 유사한 뜻도 정답으로 인정한다.",
+        "choices": "보기", "review": "검토 필요 문항", "review_note": "아래 문항은 검증에서 지적이 남았습니다. 쓰기 전에 직접 확인하세요.", "review_item": "{}번",
     },
     "en": {
         "sheet": "Name: ______________　Date: ______________　Score: ______ / {}",
@@ -56,6 +57,7 @@ LABELS = {
         "no": "No.", "ans": "Answer", "blank_head": "Meaning",
         "key": "Answer Key", "quick": "Answers",
         "accept": "Meanings that fit the context are also accepted.",
+        "choices": "Choices", "review": "Items to review", "review_note": "These items still had open issues after checking. Please review them before use.", "review_item": "No. {}",
     },
 }
 
@@ -137,7 +139,11 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
             group_ids.setdefault(it["passage_group"], []).append(it["id"])
     sec_start = {s["first"]: s for s in exam.get("sections", [])}
 
-    B: list[dict] = [{"k": "title", "t": exam["title"]}, {"k": "p", "t": L["sheet"].format(num(total))}]
+    B: list[dict] = []
+    if exam.get("review") and not paper_only:
+        B.append({"k": "quote", "t": f"**{K['review']}**　{K['review_note']}\n"
+                  + "\n".join(f"- {K['review_item'].format(r['id'])}: {r['reason']}" for r in exam["review"])})
+    B += [{"k": "title", "t": exam["title"]}, {"k": "p", "t": L["sheet"].format(num(total))}]
     if exam.get("sections"):
         B.append(score_table(exam, L))
     B.append({"k": "rule"})
@@ -161,7 +167,8 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
 
         stem = it.get("stem", "")
         head = stem if st == "word-list" else f"{it['id']}. {stem}".rstrip()
-        B.append({"k": "stem", "t": head + points_label(it, L)})
+        if (head + points_label(it, L)).strip():
+            B.append({"k": "stem", "t": (head + points_label(it, L)).strip()})
         if it.get("given"):
             B.append({"k": "quote", "t": it["given"]})
         if it.get("word_bank"):
@@ -184,7 +191,7 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
                 rows.append([f"{ll[i]} {left[i]}" if i < len(left) else "",
                              "____" if i < len(left) else "",
                              f"{rl[i]} {right[i]}" if i < len(right) else ""])
-            B.append({"k": "table", "head": [L["col"]["word"], L["ans"], ""], "rows": rows})
+            B.append({"k": "table", "head": [L["col"]["word"], L["ans"], L["choices"]], "rows": rows})
         if st == "meaning-write":
             rows = [[n, e["word"], "____________________"] for n, e in enumerate(it["vocab_entries"], 1)]
             B.append({"k": "table", "head": [L["no"], L["col"]["word"], L["blank_head"]], "rows": rows})

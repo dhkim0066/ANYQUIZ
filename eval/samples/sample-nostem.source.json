@@ -1,0 +1,97 @@
+{
+  "schema_version": 2,
+  "title": "Sample Sentence Completion Sheet (script regression)",
+  "mode": "format",
+  "language": "en",
+  "explanation_language": "ko",
+  "option_marker": "letter",
+  "source_level": "A2+",
+  "sections": [
+    {
+      "title": "Part 1. Sentence Completion",
+      "instruction": "Choose the phrase that best completes each sentence.",
+      "first": 1,
+      "last": 2
+    },
+    {
+      "title": "Part 2. Word List",
+      "first": 3,
+      "last": 3
+    }
+  ],
+  "role": "source",
+  "answer_key": "none",
+  "items": [
+    {
+      "id": 1,
+      "type": "reading",
+      "subtype": "blank-inference",
+      "level": "A2+",
+      "points": 10,
+      "topic_tags": [
+        "daily-life",
+        "school"
+      ],
+      "passage": "The printer ran out of paper during the lunch break. Before the afternoon class, the teacher asked Mina to ____ .",
+      "options": [
+        "bring a new pack upstairs",
+        "open all the windows wide",
+        "write her name in pencil",
+        "move the desks back again"
+      ],
+      "option_language": "en"
+    },
+    {
+      "id": 2,
+      "type": "reading",
+      "subtype": "blank-inference",
+      "level": "A2+",
+      "points": 10,
+      "topic_tags": [
+        "daily-life",
+        "transport"
+      ],
+      "passage": "The last bus leaves the station at nine. Hugo finished work at ten to nine, so he had to ____ .",
+      "options": [
+        "cook dinner for his family",
+        "run all the way there",
+        "read the whole newspaper first",
+        "wait for his friend's call"
+      ],
+      "option_language": "en"
+    },
+    {
+      "id": 3,
+      "type": "vocab",
+      "subtype": "word-list",
+      "level": "A2+",
+      "points": 0,
+      "topic_tags": [
+        "vocabulary"
+      ],
+      "vocab_columns": [
+        "word",
+        "pos",
+        "meaning"
+      ],
+      "words_from_passages": true,
+      "vocab_entries": [
+        {
+          "word": "printer",
+          "pos": "n.",
+          "meaning": "인쇄기"
+        },
+        {
+          "word": "station",
+          "pos": "n.",
+          "meaning": "역, 정류장"
+        },
+        {
+          "word": "finish",
+          "pos": "v.",
+          "meaning": "끝내다"
+        }
+      ]
+    }
+  ]
+}

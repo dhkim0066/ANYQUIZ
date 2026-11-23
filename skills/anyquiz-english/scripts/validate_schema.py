@@ -11,7 +11,8 @@ file.json 하나만 주면 그 파일의 role에 맞춰 검사합니다.
   - role: generated  위에 더해 정답·해설·오답 이유의 존재와 작성 규칙(보기 길이, 정답 분포 등)을 검사합니다.
 
 --compare  두 파일을 각각 검사한 뒤, 형식이 같은지 비교합니다 (schema.md "원본과 생성물의 형식 비교").
---stats    지문 단어 수, 문장 평균 길이, 보기 낱말 수를 문항별로 출력합니다. JSON에 적지 않고 여기서 봅니다.
+--stats    지문 단어 수, 문단 수, 문장 평균 길이, 보기 낱말 수를 문항별로 출력합니다. JSON에 적지 않고 여기서 봅니다.
+           구조 검사를 하지 않으므로 수준(level)을 아직 정하지 않은 파일에도 쓸 수 있습니다.
 
 종료 코드: 0 통과, 1 실패. 실패 항목은 한 줄씩 출력합니다.
 """
@@ -57,6 +58,15 @@ def passage_words(it: dict) -> int:
 
 def opt_len(o: str) -> int:
     return len(o.split())
+
+
+def sentence_lengths(it: dict) -> list[int]:
+    text = " ".join(x for x in (it.get("given"), it.get("passage")) if x)
+    return [len(en_words(s)) for s in re.split(r"(?<=[.!?])\s+", text) if len(en_words(s)) >= 3]
+
+
+def paragraph_count(it: dict) -> int:
+    return len([p for p in re.split(r"\n\s*\n", it.get("passage", "")) if p.strip()])
 
 
 def load(p: str) -> dict:
@@ -106,6 +116,21 @@ def structure_errors(exam: dict) -> list[str]:
         if expect != len(items) + 1:
             errs.append(f"sections가 문항 1~{len(items)}를 빠짐없이 덮지 않음 (마지막 {expect - 1})")
 
+    if "review" in exam:
+        if role != "generated":
+            errs.append("review(검토 필요 문항)는 generated에만 씀")
+        for r in exam["review"]:
+            if not 1 <= r["id"] <= len(items):
+                errs.append(f"review: {r['id']}번 문항이 없음")
+
+    # 발문을 생략할 수 있는 문항: 영역 지시문이나 묶음 안내문이 발문을 대신하는 경우
+    covered: set[int] = set()
+    for s in secs or []:
+        if s.get("instruction"):
+            covered.update(range(s["first"], s["last"] + 1))
+    lead = {it["passage_group"] for it in items if it.get("passage_group") and it.get("group_instruction")}
+    covered.update(it["id"] for it in items if it.get("passage_group") in lead)
+
     want_answer = needs_answers(exam)
     for it in items:
         tag, st = f"item {it['id']}", it["subtype"]
@@ -125,8 +150,9 @@ def structure_errors(exam: dict) -> list[str]:
             if field in it:
                 errs.append(f"{tag}: {st}에는 {field}를 쓰지 않음 ({why})")
 
-        if it["type"] != "cloze" and "stem" not in it:
-            errs.append(f"{tag}: stem(발문)이 없음. 영역 지시문이 발문을 대신하는 빈칸 문항만 생략할 수 있음")
+        if "stem" not in it and it["type"] != "cloze" and st != "word-list" and it["id"] not in covered:
+            errs.append(f"{tag}: stem(발문)이 없음. 생략하려면 그 영역의 sections[].instruction이나 "
+                        "묶음의 group_instruction이 발문을 대신해야 함 (원본에 없는 발문을 지어 넣지 말 것)")
         if st in NO_OPTIONS:
             forbid("options", "객관식이 아님")
         else:
@@ -298,10 +324,11 @@ def writing_errors(exam: dict) -> list[str]:
         if opts and isinstance(it.get("answer"), int) and 0 <= it["answer"] < len(opts):
             mc_count += 1
             answers[it["answer"]] += 1
-            if it["type"] == "reading":
-                notes = it.get("distractor_notes") or []
-                if len(notes) != len(opts) - 1:
-                    errs.append(f"{tag}: distractor_notes {len(notes)}개. 오답 보기마다 하나씩 {len(opts) - 1}개여야 함")
+            notes = it.get("distractor_notes")
+            symbol_only = st in POSITION or st == "order"
+            if (it["type"] == "reading" and not symbol_only) or notes is not None:
+                if len(notes or []) != len(opts) - 1:
+                    errs.append(f"{tag}: distractor_notes {len(notes or [])}개. 정답이 아닌 보기마다 하나씩 {len(opts) - 1}개여야 함")
             if st not in POSITION and st not in COMBO:
                 lens = [opt_len(o) for o in opts]
                 if max(lens) > 2 * max(min(lens), 1) and max(lens) - min(lens) >= 3:
@@ -347,6 +374,57 @@ def writing_errors(exam: dict) -> list[str]:
         top, n = answers.most_common(1)[0]
         if n / mc_count > 0.4:
             errs.append(f"정답 분포: {top + 1}번째 보기가 {n}/{mc_count} ({n / mc_count:.0%}). 40% 초과")
+    errs += leak_errors(exam)
+    absolute_warnings(exam)
+    return errs
+
+
+ABSOLUTE = re.compile(r"\b(always|never|every|everyone|everything|all|only|none|nobody|must|completely|entirely)\b"
+                      r"|반드시|항상|언제나|모든|모두|절대|전혀|결코|오직", re.I)
+
+
+def absolute_warnings(exam: dict) -> None:
+    """오답에만 절대 표현이 몰려 있으면 그 표현만 보고 지울 수 있다. 실패가 아니라 주의."""
+    for it in exam["items"]:
+        opts, a, st = it.get("options"), it.get("answer"), it["subtype"]
+        if not opts or not isinstance(a, int) or not 0 <= a < len(opts):
+            continue
+        if st in POSITION or st in COMBO or st == "detail":
+            continue
+        wrong = [o for i, o in enumerate(opts) if i != a]
+        hit = [o for o in wrong if ABSOLUTE.search(o)]
+        if len(hit) >= 2 and not ABSOLUTE.search(opts[a]):
+            WARNINGS.append(f"item {it['id']}: 오답 {len(hit)}개에만 절대 표현(always, 모든 등)이 있음. 표현만 보고 지워질 수 있음")
+
+
+def leak_errors(exam: dict) -> list[str]:
+    """뜻 쓰기 문항의 정답(우리말 뜻)이나 표제어 풀이가 같은 문제지의 다른 곳에 드러나 있는가."""
+    errs: list[str] = []
+    ko_text: list[tuple[int, str]] = []
+    notes: list[tuple[int, str]] = []
+    for it in exam["items"]:
+        if it.get("option_language") == "ko":
+            ko_text += [(it["id"], o) for o in it.get("options") or []]
+        if it.get("footnote"):
+            notes.append((it["id"], it["footnote"]))
+    for it in exam["items"]:
+        if it["subtype"] != "meaning-write":
+            continue
+        for e in it.get("vocab_entries", []):
+            word = e["word"].lower()
+            for nid, note in notes:
+                if re.search(rf"\b{re.escape(word)}\b", note.lower()):
+                    errs.append(f"item {it['id']}: '{e['word']}'의 뜻이 문항 {nid}의 각주에 풀이돼 있음")
+                    break
+            for m in re.split(r"[,/;]", e.get("meaning") or ""):
+                m = m.strip()
+                key = m[:-1] if m.endswith("다") else m     # 빌리다 → 빌리
+                if len(key) < 2:
+                    continue
+                where = sorted({nid for nid, t in ko_text if key in t})
+                if where:
+                    errs.append(f"item {it['id']}: '{e['word']}'의 정답 뜻({m})이 문항 {where}의 한국어 보기에 나옴")
+                    break
     return errs
 
 
@@ -386,6 +464,7 @@ def compare_errors(src: dict, gen: dict) -> list[str]:
     if len(src["items"]) != len(gen["items"]):
         errs.append(f"문항 수: 원본 {len(src['items'])}, 생성 {len(gen['items'])}")
         return errs
+    seen_groups: set[str] = set()
     for a, b in zip(src["items"], gen["items"]):
         tag = f"item {a['id']}"
         if (a["type"], a["subtype"]) != (b["type"], b["subtype"]):
@@ -422,20 +501,28 @@ def compare_errors(src: dict, gen: dict) -> list[str]:
         pw_a, pw_b = passage_words(a), passage_words(b)
         if pw_a and abs(pw_b - pw_a) > max(5, pw_a * 0.2):
             errs.append(f"{tag}: 지문 단어 수 {pw_a} → {pw_b} (±20%, 최소 ±5 초과)")
+        sl_a, sl_b = sentence_lengths(a), sentence_lengths(b)
+        if len(sl_a) >= 3 and sl_b and not (b.get("passage_group") and b["passage_group"] in seen_groups):
+            avg_a, avg_b = sum(sl_a) / len(sl_a), sum(sl_b) / len(sl_b)
+            if abs(avg_b - avg_a) > avg_a * 0.25:
+                WARNINGS.append(f"{tag}: 문장 평균 길이 {avg_a:.1f} → {avg_b:.1f}단어 (±25% 초과). 수준이 달라졌을 수 있음")
+        if b.get("passage_group"):
+            seen_groups.add(b["passage_group"])
         if not set(a["topic_tags"]) & set(b["topic_tags"]):
             errs.append(f"{tag}: 소재 태그 겹침 없음 {a['topic_tags']} vs {b['topic_tags']} (사용자가 다른 소재를 요청했으면 무시)")
     return errs
 
 
 def stats(exam: dict) -> None:
-    print(f"{exam['title']}  [{exam['role']}, {exam['language']}, {exam['option_marker']}, {exam['source_level']}]")
+    """구조 검사 없이 센다. 수준(level)을 아직 적지 않은 파일도 받는다."""
+    print(f"{exam.get('title', '(제목 없음)')}  [{exam.get('role', '?')}, 발문 {exam.get('language', '?')}, "
+          f"보기 표기 {exam.get('option_marker', '?')}, 수준 {exam.get('source_level', '미정')}]")
     seen: set[str] = set()
     all_sent: list[int] = []
-    print(f"{'id':>3}  {'type/subtype':<26} {'지문':>5} {'문장평균':>7}  보기 낱말 수")
-    for it in exam["items"]:
+    print(f"{'id':>3}  {'type/subtype':<26} {'지문':>5} {'문단':>4} {'문장평균':>7}  보기 낱말 수")
+    for it in exam.get("items", []):
         g = it.get("passage_group")
-        text = " ".join(x for x in (it.get("given"), it.get("passage")) if x)
-        sents = [len(en_words(s)) for s in re.split(r"(?<=[.!?])\s+", text) if len(en_words(s)) >= 3]
+        sents = sentence_lengths(it)
         if not (g and g in seen):
             all_sent += sents
         if g:
@@ -447,14 +534,16 @@ def stats(exam: dict) -> None:
         if "word_bank" in it:
             extra = f"보기 상자 {len(it['word_bank'])}, 빈칸 {len(BLANK.findall(it.get('passage', '')))}"
         if "match_left" in it:
-            extra = f"짝 {len(it['match_left'])} : {len(it['match_right'])}"
+            extra = f"짝 {len(it['match_left'])} : {len(it.get('match_right', []))}"
         if "vocab_entries" in it:
             extra = f"단어 {len(it['vocab_entries'])}개"
-        print(f"{it['id']:>3}  {it['type'] + '/' + it['subtype']:<26} {passage_words(it) or '-':>5} {avg:>7}  {o}{extra}"
-              f"{'  [' + g + ']' if g else ''}")
+        kind = f"{it.get('type', '?')}/{it.get('subtype', '?')}"
+        print(f"{it.get('id', '?'):>3}  {kind:<26} {passage_words(it) or '-':>5} {paragraph_count(it) or '-':>4} {avg:>7}  "
+              f"{o}{extra}{'  [' + g + ']' if g else ''}")
     if all_sent:
         print(f"\n전체 문장 평균 길이 {sum(all_sent) / len(all_sent):.1f}단어 ({len(all_sent)}문장). "
               "수준 판단은 references/subject-english.md 1절 참고")
+    print("지문 단어 수는 영어 낱말만 셉니다(주어진 글 포함, 빈칸·기호·각주 제외). 생성물의 목표는 이 값의 ±20%입니다.")
 
 
 def report(errs: list[str]) -> int:
@@ -480,11 +569,7 @@ def main() -> int:
         if len(args) < 2:
             print(__doc__)
             return 1
-        exam = load(args[1])
-        errs = schema_errors(exam)
-        if errs:
-            return report(errs)
-        stats(exam)
+        stats(load(args[1]))
         return 0
     if args[0] == "--compare":
         if len(args) < 3:
