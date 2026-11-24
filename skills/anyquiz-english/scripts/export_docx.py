@@ -31,13 +31,15 @@ def load_renderer():
 
 
 def add_runs(par, text: str, bold_all: bool = False, italic: bool = False) -> None:
-    """**굵게** 표시를 실제 굵은 글씨로 바꿔 넣는다."""
+    """**굵게**는 굵은 글씨로, __밑줄__은 실제 밑줄로 바꿔 넣는다. 빈칸(____)은 그대로 둔다."""
     for i, part in enumerate(re.split(r"\*\*(.+?)\*\*", text)):
-        if not part:
-            continue
-        run = par.add_run(part)
-        run.bold = bold_all or i % 2 == 1
-        run.italic = italic
+        for j, piece in enumerate(re.split(r"(?<!_)__(?!_)(.+?)(?<!_)__(?!_)", part)):
+            if not piece:
+                continue
+            run = par.add_run(piece)
+            run.bold = bold_all or i % 2 == 1
+            run.italic = italic
+            run.underline = j % 2 == 1
 
 
 def main() -> int:
@@ -76,7 +78,7 @@ def main() -> int:
         elif k == "p":
             add_runs(doc.add_paragraph(), b["t"])
         elif k == "note":
-            add_runs(doc.add_paragraph(), b["t"].strip("*"), italic=True)
+            doc.add_paragraph().add_run(b["t"]).italic = True  # 각주의 별표는 글자 그대로
         elif k == "quote":
             par = doc.add_paragraph()
             par.paragraph_format.left_indent = Cm(0.8)

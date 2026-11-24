@@ -60,7 +60,8 @@ python3 scripts/extract.py exam.pdf out.txt
 python3 scripts/validate_schema.py source.json            # 원본 분석: 구조만 검사
 python3 scripts/validate_schema.py --stats source.json    # 지문 단어 수, 문단 수, 문장 평균 길이, 보기 길이
 python3 scripts/validate_schema.py --compare source.json generated.json
-python3 scripts/pick_seeds.py 8                           # 새 지문에 쓸 이름·장소·사물·전개 방식 뽑기
+python3 scripts/pick_names.py 8 --avoid source.txt        # 새 지문에 쓸 인물 이름 뽑기 (원본의 이름 제외)
+python3 scripts/validate_schema.py --words-in input.txt generated.json   # 단어집의 단어가 입력 글에 있는지
 python3 scripts/overlap.py source.txt generated.json      # 원본과 겹치는 정도
 python3 scripts/overlap.py run-a.json run-b.json          # 두 실행끼리 겹치는 정도
 python3 scripts/render_md.py generated.json out.md

@@ -5,6 +5,7 @@
     python3 validate_schema.py file.json
     python3 validate_schema.py --compare source.json generated.json
     python3 validate_schema.py --stats file.json
+    python3 validate_schema.py --words-in input.txt generated.json
 
 file.json 하나만 주면 그 파일의 role에 맞춰 검사합니다.
   - role: source     구조와 유형별 담는 법만 검사합니다. 작성 규칙은 적용하지 않습니다(원본은 고칠 수 없는 기준).
@@ -13,6 +14,9 @@ file.json 하나만 주면 그 파일의 role에 맞춰 검사합니다.
 --compare  두 파일을 각각 검사한 뒤, 형식이 같은지 비교합니다 (schema.md "원본과 생성물의 형식 비교").
 --stats    지문 단어 수, 문단 수, 문장 평균 길이, 보기 낱말 수를 문항별로 출력합니다. JSON에 적지 않고 여기서 봅니다.
            구조 검사를 하지 않으므로 수준(level)을 아직 정하지 않은 파일에도 쓸 수 있습니다.
+
+--words-in 입력 글에서 단어를 뽑은 단어집일 때, 표제어가 실제로 그 글에 있는지 봅니다. 못 찾은 단어는 주의로 알립니다
+           (불규칙 변화형은 가려내지 못하므로 직접 확인).
 
 종료 코드: 0 통과, 1 실패. 실패 항목은 한 줄씩 출력합니다.
 """
@@ -43,6 +47,8 @@ MATCH = {"synonym-match", "definition-match"}
 NO_ANSWER = {"word-list", "meaning-write"}
 NO_OPTIONS = MATCH | NO_ANSWER | {"word-bank"}
 BLANK = re.compile(r"_{3,}")
+UNDERLINE = re.compile(r"(?<!_)__(?!_)(.+?)(?<!_)__(?!_)")
+SAYS_UNDERLINE = re.compile(r"밑줄|underlined", re.I)
 WORD = re.compile(r"[A-Za-z]+(?:['’\-][A-Za-z]+)*")
 MARKER = re.compile(r"\((?:[A-Za-z]|\d{1,3})\)")
 COMBO_SPLIT = re.compile(r"\s*[–—－]\s*|\s+-\s+")
@@ -131,8 +137,14 @@ def structure_errors(exam: dict) -> list[str]:
     lead = {it["passage_group"] for it in items if it.get("passage_group") and it.get("group_instruction")}
     covered.update(it["id"] for it in items if it.get("passage_group") in lead)
 
+    group_passage = {it["passage_group"]: it.get("passage", "") for it in items if it.get("passage_group")}
     want_answer = needs_answers(exam)
     for it in items:
+        if SAYS_UNDERLINE.search(it.get("stem", "")):
+            where = " ".join([it.get("stem", ""), it.get("passage", ""), group_passage.get(it.get("passage_group"), ""),
+                              it.get("given", ""), " ".join(it.get("options") or [])])
+            if "**" in where and not UNDERLINE.search(where):
+                errs.append(f"item {it['id']}: 발문은 밑줄인데 표시가 굵게(**…**)임. 밑줄 대상은 __…__로 감쌈")
         tag, st = f"item {it['id']}", it["subtype"]
         if st not in SUBTYPES[it["type"]]:
             errs.append(f"{tag}: type {it['type']}에 subtype {st}는 올 수 없음")
@@ -361,8 +373,8 @@ def writing_errors(exam: dict) -> list[str]:
                     errs.append(f"{tag}: '{e['word']}' 예문이 6단어 미만")
         if st in ("reference", "implied-meaning"):
             p = it.get("passage", "")
-            if "**" not in p and not re.search(r"[ⓐ-ⓩ]", p):
-                errs.append(f"{tag}: 지문에 대상 표시(**…** 또는 ⓐ)가 없음")
+            if "**" not in p and not UNDERLINE.search(p) and not re.search(r"[ⓐ-ⓩ]", p):
+                errs.append(f"{tag}: 지문에 대상 표시(__밑줄__, **굵게** 또는 ⓐ)가 없음")
         if it.get("words_from_passages"):
             toks = corpus_tokens(exam, it["id"])
             words = [e["word"] for e in it.get("vocab_entries", [])] + list(it.get("match_left", []))
@@ -379,8 +391,9 @@ def writing_errors(exam: dict) -> list[str]:
     return errs
 
 
-ABSOLUTE = re.compile(r"\b(always|never|every|everyone|everything|all|only|none|nobody|must|completely|entirely)\b"
-                      r"|반드시|항상|언제나|모든|모두|절대|전혀|결코|오직", re.I)
+# every, all, 모든, 모두는 뺐다. 평범한 뜻으로 자주 쓰여 맞는 지적이 되지 못했다.
+ABSOLUTE = re.compile(r"\b(always|never|only|none|nobody|must|completely|entirely)\b"
+                      r"|반드시|항상|언제나|절대|전혀|결코|오직", re.I)
 
 
 def absolute_warnings(exam: dict) -> None:
@@ -394,7 +407,7 @@ def absolute_warnings(exam: dict) -> None:
         wrong = [o for i, o in enumerate(opts) if i != a]
         hit = [o for o in wrong if ABSOLUTE.search(o)]
         if len(hit) >= 2 and not ABSOLUTE.search(opts[a]):
-            WARNINGS.append(f"item {it['id']}: 오답 {len(hit)}개에만 절대 표현(always, 모든 등)이 있음. 표현만 보고 지워질 수 있음")
+            WARNINGS.append(f"item {it['id']}: 오답 {len(hit)}개에만 절대 표현(always, never, 반드시 등)이 있음. 표현만 보고 지워질 수 있음")
 
 
 def leak_errors(exam: dict) -> list[str]:
@@ -492,7 +505,6 @@ def compare_errors(src: dict, gen: dict) -> list[str]:
         same("words_from_passages", "지문 출처 제약", bool)
         same("given", "주어진 글 유무", bool)
         same("prompt_text", "요약문 유무", bool)
-        same("footnote", "각주 유무", bool)
         nb_a, nb_b = len(BLANK.findall(a.get("passage", ""))), len(BLANK.findall(b.get("passage", "")))
         if nb_a != nb_b:
             errs.append(f"{tag}: 지문 빈칸 수 {nb_a} → {nb_b}")
@@ -511,6 +523,19 @@ def compare_errors(src: dict, gen: dict) -> list[str]:
         if not set(a["topic_tags"]) & set(b["topic_tags"]):
             errs.append(f"{tag}: 소재 태그 겹침 없음 {a['topic_tags']} vs {b['topic_tags']} (사용자가 다른 소재를 요청했으면 무시)")
     return errs
+
+
+def all_sentence_lengths(exam: dict) -> list[int]:
+    out: list[int] = []
+    seen: set[str] = set()
+    for it in exam.get("items", []):
+        g = it.get("passage_group")
+        if g and g in seen:
+            continue
+        if g:
+            seen.add(g)
+        out += sentence_lengths(it)
+    return out
 
 
 def stats(exam: dict) -> None:
@@ -579,7 +604,28 @@ def main() -> int:
         errs = [f"[원본] {e}" for e in check(src)] + [f"[생성] {e}" for e in check(gen)]
         if not any(e.startswith(("[원본] schema", "[생성] schema")) for e in errs):
             errs += [f"[비교] {e}" for e in compare_errors(src, gen)]
+            a, b = all_sentence_lengths(src), all_sentence_lengths(gen)
+            if a and b:
+                ma, mb = sum(a) / len(a), sum(b) / len(b)
+                print(f"참고: 문제지 전체 문장 평균 길이 {ma:.1f} → {mb:.1f}단어 ({(mb - ma) / ma:+.0%}). "
+                      "한 문장짜리 문항은 문항별 주의에 걸리지 않으므로 이 값으로 봅니다.")
         return report(errs)
+    if args[0] == "--words-in":
+        if len(args) < 3:
+            print(__doc__)
+            return 1
+        try:
+            toks = {w.lower() for w in en_words(Path(args[1]).read_text(encoding="utf-8"))}
+        except FileNotFoundError:
+            print(f"파일을 찾을 수 없음: {args[1]}", file=sys.stderr)
+            return 1
+        exam = load(args[2])
+        words = [e["word"] for it in exam.get("items", []) for e in it.get("vocab_entries", [])]
+        missing = [w for w in words if not in_corpus(w, toks)]
+        print(f"표제어 {len(words)}개 중 입력 글에서 찾은 것 {len(words) - len(missing)}개")
+        # 불규칙 변화형(sought ← seek)은 가려낼 수 없어서 실패가 아니라 주의로 낸다
+        WARNINGS.extend(f"'{w}'가 입력 글에서 보이지 않음. 입력 글에서 직접 찾아보고, 없으면 그 단어를 뺌" for w in missing)
+        return report([])
     return report(check(load(args[0])))
 
 

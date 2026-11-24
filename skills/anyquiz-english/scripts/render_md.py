@@ -4,7 +4,9 @@
 사용법:
     python3 render_md.py generated.json [out.md] [--paper-only]
 
-- 머리: 제목, 이름·날짜·점수 줄, 영역별 배점표(sections가 있을 때).
+- 머리: 제목, 이름·날짜·점수 줄, 영역별 배점표(sections가 있을 때). 배점이 하나도 없으면 점수 칸과 배점표를 뺍니다.
+- 지문·발문의 __밑줄__은 <u>밑줄</u>로, **굵게**는 그대로 냅니다.
+- 묶음 안내문은 group_instruction이 있을 때만 찍습니다. 원본이 없는 모드(passage)에서만 기본 문구를 붙입니다.
 - 라벨과 배점 표기는 language를, 정답·해설 쪽 라벨은 explanation_language를 따릅니다.
 - 보기 번호는 option_marker를 따릅니다. 언어와 무관합니다.
 - 유형별 출력은 references/schema.md "유형별 담는 법"을 따릅니다.
@@ -33,6 +35,7 @@ MATCH = {"synonym-match", "definition-match"}
 LABELS = {
     "ko": {
         "sheet": "이름: ______________　날짜: ______________　점수: ______ / {}점",
+        "sheet0": "이름: ______________　날짜: ______________",
         "score_head": ["영역", "문항", "배점", "합계"],
         "range": "{}~{}번 ({}문항)", "one": "{}번",
         "each": "각 {}점", "mixed": "문항별 배점 참고", "none": "배점 없음", "total": "합계", "pts": "{}점",
@@ -47,6 +50,7 @@ LABELS = {
     },
     "en": {
         "sheet": "Name: ______________　Date: ______________　Score: ______ / {}",
+        "sheet0": "Name: ______________　Date: ______________",
         "score_head": ["Section", "Questions", "Points", "Total"],
         "range": "{}–{} ({} questions)", "one": "{}",
         "each": "{} each", "mixed": "see each item", "none": "Not scored", "total": "Total", "pts": "{}",
@@ -99,6 +103,8 @@ def score_table(exam: dict, L: dict) -> dict:
         ssum = sum(pts)
         total += ssum
         rng = L["one"].format(s["first"]) if s["first"] == s["last"] else L["range"].format(s["first"], s["last"], len(its))
+        if its and all(it["subtype"] == "word-list" for it in its):
+            rng = "-"  # 단어집은 번호 없이 나온다
         if ssum == 0:
             how = L["none"]
         elif len(set(pts)) == 1 and len(pts) > 1:
@@ -143,8 +149,9 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
     if exam.get("review") and not paper_only:
         B.append({"k": "quote", "t": f"**{K['review']}**　{K['review_note']}\n"
                   + "\n".join(f"- {K['review_item'].format(r['id'])}: {r['reason']}" for r in exam["review"])})
-    B += [{"k": "title", "t": exam["title"]}, {"k": "p", "t": L["sheet"].format(num(total))}]
-    if exam.get("sections"):
+    B += [{"k": "title", "t": exam["title"]},
+          {"k": "p", "t": L["sheet"].format(num(total)) if total else L["sheet0"]}]
+    if exam.get("sections") and total:
         B.append(score_table(exam, L))
     B.append({"k": "rule"})
 
@@ -160,7 +167,10 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
         if g and g not in seen:
             seen.add(g)
             ids = group_ids[g]
-            B.append({"k": "strong", "t": it.get("group_instruction") or L["group"].format(ids[0], ids[-1])})
+            # 원본을 본뜨는 format 모드에서는 원본에 없던 안내문을 지어 붙이지 않는다
+            lead = it.get("group_instruction") or (L["group"].format(ids[0], ids[-1]) if exam.get("mode") != "format" else "")
+            if lead:
+                B.append({"k": "strong", "t": lead})
             B += [{"k": "p", "t": p} for p in paragraphs(it["passage"])]
             if it.get("footnote"):
                 B.append({"k": "note", "t": it["footnote"]})
@@ -201,8 +211,8 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
                     for n, e in enumerate(it["vocab_entries"], 1)]
             B.append({"k": "table", "head": [L["no"]] + [L["col"][c] for c in cols], "rows": rows})
 
-    if paper_only:
-        return B
+    if paper_only or all(it["subtype"] == "word-list" for it in items):
+        return B  # 단어집뿐이면 정답·해설 쪽이 비므로 붙이지 않는다
 
     B += [{"k": "break"}, {"k": "title", "t": f"{exam['title']} — {K['key']}"}]
     quick = [f"{it['id']}{answer_text(it, nums)}" for it in items
@@ -238,6 +248,14 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
     return B
 
 
+UNDERLINE = re.compile(r"(?<!_)__(?!_)(.+?)(?<!_)__(?!_)")
+
+
+def md_inline(text: str) -> str:
+    """__밑줄__ → <u>밑줄</u>. 빈칸(____)은 건드리지 않는다."""
+    return UNDERLINE.sub(r"<u>\1</u>", text)
+
+
 def md_table(head: list, rows: list) -> list[str]:
     out = ["| " + " | ".join(str(h) for h in head) + " |", "|" + "---|" * len(head)]
     out += ["| " + " | ".join(str(c).replace("|", "\\|") for c in r) + " |" for r in rows]
@@ -253,15 +271,15 @@ def to_markdown(blocks: list[dict]) -> str:
         elif k == "section":
             out += [f"## {b['t']}", ""]
         elif k in ("strong", "stem"):
-            out += [f"**{b['t']}**", ""]
+            out += [f"**{md_inline(b['t'])}**", ""]
         elif k == "p":
-            out += [b["t"], ""]
+            out += [md_inline(b["t"]), ""]
         elif k == "note":
-            out += [f"*{b['t'].strip('*')}*", ""]
+            out += [b["t"].replace("*", "\\*"), ""]  # 각주의 별표는 글자 그대로
         elif k == "quote":
-            out += ["> " + ln for ln in b["t"].splitlines()] + [""]
+            out += ["> " + md_inline(ln) for ln in b["t"].splitlines()] + [""]
         elif k == "opts":
-            out += ["　".join(b["items"]), ""] if b["inline"] else [x + "  " for x in b["items"]] + [""]
+            out += ["　".join(md_inline(x) for x in b["items"]), ""] if b["inline"] else [md_inline(x) + "  " for x in b["items"]] + [""]
         elif k == "table":
             out += md_table(b["head"], b["rows"]) + [""]
         elif k == "bullets":
