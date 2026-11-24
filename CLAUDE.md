@@ -49,6 +49,7 @@
 - 스킬 파일을 고친 뒤에는 반드시 `/anyquiz-english`로 실제 호출해 본다. 파일만 보고 판단하지 않는다.
 - `references/question-types.md`의 "나쁜 예"는 실제 실패 사례에서만 추가한다. 상상해서 쓰지 않는다. 스킬 파일에는 평가 세트의 문제지·문항 번호를 적지 않는다(어느 사례가 어느 문항인지는 `eval/results/`에만 적는다).
 - 평가 세트(`eval/sources/`)의 문제지는 사용자가 직접 만들어 제공한다. Claude가 만들지 않는다(생성기 편향이 기준에 들어간다).
+- `eval/holdout/`은 측정 전용이다. 스킬을 고칠 때 이 폴더의 문제지와 그 생성물을 읽지 않는다. 결과는 점수와 실패 건수만 기록하고, 실패 사례를 스킬 규칙이나 `question-types.md`에 넣지 않는다.
 - `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx). `-I`에서는 같은 폴더 import가 안 된다. 스크립트끼리 코드를 나눠 쓸 때는 `export_docx.py`처럼 `importlib`로 경로를 지정해 불러온다. 출력 구조는 `render_md.py`의 `build_blocks()` 한 곳에서 만든다.
 - 새 유형이나 필드를 더할 때는 네 곳을 함께 고친다: `schema.md`의 "유형별 담는 법", `exam.schema.json`, `validate_schema.py`, `render_md.py`. 한 곳만 고치면 04번의 짝짓기처럼 문서대로 담았는데 출력이 망가진다.
 - 스크립트 수정 후 `eval/samples/`로 회귀 확인:
