@@ -82,14 +82,26 @@ def _page_text(page, use_columns: bool) -> tuple[str, bool]:
         if (sum(w["x1"] <= x for w in inside) < MIN_WORDS_PER_SIDE
                 or sum(w["x0"] >= x for w in inside) < MIN_WORDS_PER_SIDE):
             gutter = None
+    from_rule = gutter is not None
     if not gutter:
         gutter = _gutter_from_whitespace(page, words)
     if not gutter:
         return page.extract_text() or "", False
 
     x, top, bottom = gutter
-    top = max(0, top - 1)
-    bottom = min(page.height, bottom + 1)
+    if from_rule:
+        # 구분선은 글자에 닿지 않으므로 위아래로 조금 넉넉히 잡는다
+        top = max(0, top - 1)
+        bottom = min(page.height, bottom + 1)
+    else:
+        # 빈 띠의 위아래 끝은 가로막는 낱말의 경계 그대로다. 넓히면 단 위의 마지막 줄
+        # (쪽 전체 폭으로 쓴 지문의 끝줄)이 단 안으로 걸쳐 들어와 두 동강 난다.
+        # 경계에 딱 닿은 글자도 잘라낸 영역에 들어오므로 안쪽으로 조금 물린다.
+        top = top + 0.5
+        if bottom >= max(w["bottom"] for w in words) - 0.01:
+            bottom = min(page.height, bottom + 1)
+        else:
+            bottom = bottom - 0.5
     parts = []
     regions = [
         (0, 0, page.width, top),            # 단 위쪽: 쪽 전체 폭
