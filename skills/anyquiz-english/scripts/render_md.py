@@ -7,7 +7,7 @@
 - 머리: 제목, 이름·날짜·점수 줄, 영역별 배점표(sections가 있을 때). 배점이 하나도 없으면 점수 칸과 배점표를 뺍니다.
 - 지문·발문의 __밑줄__은 <u>밑줄</u>로, **굵게**는 그대로 냅니다.
 - 묶음 안내문은 group_instruction이 있을 때만 찍습니다. 원본이 없는 모드(passage)에서만 기본 문구를 붙입니다.
-- 라벨과 배점 표기는 language를, 정답·해설 쪽 라벨은 explanation_language를 따릅니다.
+- 라벨, 배점 표기, 정답지 제목은 language를 따릅니다. 해설 쪽 문구(뜻 인정 안내, 검토 필요 문항)만 explanation_language를 따릅니다.
 - 보기 번호는 option_marker를 따릅니다. 언어와 무관합니다.
 - 유형별 출력은 references/schema.md "유형별 담는 법"을 따릅니다.
   (insertion·irrelevant는 보기 목록을 찍지 않음, 짝짓기는 표, word-bank는 보기 상자 등)
@@ -214,11 +214,11 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
     if paper_only or all(it["subtype"] == "word-list" for it in items):
         return B  # 단어집뿐이면 정답·해설 쪽이 비므로 붙이지 않는다
 
-    B += [{"k": "break"}, {"k": "title", "t": f"{exam['title']} — {K['key']}"}]
+    B += [{"k": "break"}, {"k": "title", "t": f"{exam['title']} — {L['key']}"}]
     quick = [f"{it['id']}{answer_text(it, nums)}" for it in items
              if isinstance(it.get("answer"), int) and it.get("options")]
     if quick:
-        B.append({"k": "strong", "t": f"{K['quick']}: " + " ".join(quick)})
+        B.append({"k": "strong", "t": f"{L['quick']}: " + " ".join(quick)})
     for it in items:
         st = it["subtype"]
         if st == "word-list":

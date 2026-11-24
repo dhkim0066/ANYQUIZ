@@ -24,7 +24,7 @@
 - `assets/exam-template.docx`
 - `eval/samples/`로 스크립트 회귀 확인 완료
 
-## 2단계. 실제 호출과 실패 목록 `[~]` (Claude Code에서)
+## 2단계. 실제 호출과 실패 목록 `[x]` (Claude Code에서. 2026-11-24 닫음)
 
 - [x] `.claude/skills/`에 심볼릭 링크 후 `/anyquiz-english` 호출 확인 (Windows는 `mklink /J` 정션. `eval/results/round-00.md`)
 - [x] 문제지 5장으로 format 모드 실행. 매번 다음을 기록 → `eval/results/round-00.md` (01, 02 완료. 2026-11-09), `round-01.md` (수정된 스킬로 01·02 재실행 + 03. 2026-11-13, 04·05 추가. 2026-11-19)
@@ -35,9 +35,11 @@
 - [x] **스키마 v2** (2026-11-19, `eval/results/schema-v2.md`): round-01의 결정 필요 1~9를 반영. 01~05를 v2로 다시 돌림 → `round-02.md` (정답 53/53, 출력 5장 모두 사용 가능, 02는 `--compare` 실패)
 - [x] **v2.1** (2026-11-23, `eval/results/v2.1-changes.md`): round-02의 결정 필요 1~7을 반영. round-03에서 실제 호출로 확인(02 통과, 수준 우회 사라짐, 토큰 평균 15.3만 → 14.3만)
 - [x] round-03 (2026-11-24, `round-03.md`): v2.1로 01~05 재실행 + passage 3회 + vocab 3회. `--compare` 5/5, 정답 53/53, passage 14/14. 세 모드를 모두 실제로 호출함
-- [~] **v2.2** (2026-11-24, `eval/results/v2.2-changes.md`): round-03의 버그와 사용자 결정 2~5 반영. **실제 호출 확인은 바뀐 곳에 걸리는 네 건만**(03, 04, passage 한 건, vocab 한 건) → `round-04.md`
-- [ ] 실패 유형을 빈도순으로 정리. 이것이 4단계의 입력
-- [ ] 발견한 "나쁜 예"를 `question-types.md`에 추가
+- [x] **v2.2·0.2.3** (2026-11-24, `eval/results/v2.2-changes.md`): round-03의 버그와 사용자 결정 반영. round-04에서 실제 호출로 확인
+- [x] round-04 (2026-11-24, `round-04.md`): 바뀐 곳 네 건 재실행. v2.2·0.2.3의 수정이 모두 확인됨
+- [x] 0.2.4 (`eval/results/v2.4-changes.md`): round-04에서 드러난 문서 충돌 정리. 실제 호출 확인은 3단계 기준선과 함께
+- [x] 실패 유형을 빈도순으로 정리 → `eval/results/stage2-failures.md`. 이것이 4단계의 입력
+- [x] 발견한 "나쁜 예"를 `question-types.md`에 추가 (라운드마다 넣음. 대응표는 `v2.1-changes.md`)
 
 알려진 미완성:
 - `word-bank`, `synonym-match`, `definition-match`는 담는 규약과 규칙은 있으나 좋은 예·나쁜 예가 아직 없다. v2 재실행 결과에서 채운다.

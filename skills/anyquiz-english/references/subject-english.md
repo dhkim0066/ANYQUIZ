@@ -44,7 +44,7 @@
 - "소재"는 글이 무엇에 관한 것인지(`topic_tags`)이고, "내용"은 인물·장소·사건·예시·결론입니다. 소재는 유지하고 내용은 전부 바꿉니다. 원본의 줄거리를 이름만 바꿔 다시 쓰는 것은 다른 내용이 아닙니다.
 - 쓰기 전에 원본 지문의 **사건 순서와 결론**을 한 줄로 적어 보고, 새 지문은 그 줄과 다른 사건, 다른 결론으로 잡습니다. 원본이 "수치로 고르려다 → 직접 해 보고 → 생각을 바꿈"이면 새 지문은 그 순서를 따르지 않습니다.
 - 원본 발문이 지문의 틀을 정해 두는 경우가 있습니다(`…'s final question`이면 지문이 인물의 질문으로 끝나야 함). 발문이 요구하는 틀은 지키되, 그 안의 사건은 다르게 씁니다.
-- 인물 이름은 직접 고르지 않고 `scripts/pick_names.py`가 뽑은 것을 씁니다. 맡겨 두면 실행할 때마다 같은 이름이 나옵니다.
+- 인물 이름은 직접 고르지 않고 `scripts/pick_names.py`가 뽑은 것을 씁니다. 맡겨 두면 실행할 때마다 같은 이름이 나옵니다. 이름이 붙은 인물을 쓸 때만 뽑고, 역할로만 부르는 글에는 뽑지 않습니다. 뽑힌 이름의 성별은 정해져 있지 않으므로 대명사는 글 안에서 한 가지로 맞춥니다. 기관·행사 이름은 직접 짓되 실제로 있는 이름을 쓰지 않습니다.
 - 수능·내신에서 흔한 소재: 환경, 기술과 사회, 심리·행동, 교육, 역사적 일화, 경제 상식, 건강, 예술, 과학 상식.
 - 피하는 소재: 특정 종교·정치 입장, 폭력, 실존 인물의 사생활, 최근 시사(검증 불가).
 
@@ -96,7 +96,7 @@ cloze 오답은 **같은 품사 + 의미장이 인접한 단어**로 만듭니�
 | insertion | 글의 흐름으로 보아, 주어진 문장이 들어가기에 가장 적절한 곳은? |
 | irrelevant | 다음 글에서 전체 흐름과 관계 없는 문장은? |
 | summary | 다음 글의 내용을 한 문장으로 요약하고자 한다. 빈칸 (A), (B)에 들어갈 말로 가장 적절한 것은? |
-| reference | 밑줄 친 ⓐ가 가리키는 것은? |
+| reference | 밑줄 친 it이 가리키는 것은? (대상이 둘 이상이면: 밑줄 친 ⓐ가 가리키는 것은?) |
 | implied-meaning | 밑줄 친 부분에 담긴 의미로 가장 적절한 것은? |
 | inference | 윗글을 바탕으로 추론할 수 있는 것은? / ~한 이유로 가장 적절한 것은? |
 | meaning-write | 다음 단어의 문맥상 우리말 뜻을 쓰시오. |
@@ -115,7 +115,7 @@ cloze 오답은 **같은 품사 + 의미장이 인접한 단어**로 만듭니�
 | insertion | Where would the following sentence best fit? |
 | irrelevant | Which sentence does NOT fit the flow of the passage? |
 | summary | Choose the best words for (A) and (B) to complete the summary. |
-| reference | What does the underlined ⓐ refer to? |
+| reference | What does the underlined "it" refer to? (둘 이상이면: What does the underlined ⓐ refer to?) |
 | implied-meaning | What does the underlined part mean? |
 | inference | What can be inferred from the passage? / Why did ...? |
 | meaning-write | Write the Korean meaning of each word as used in the passage. |

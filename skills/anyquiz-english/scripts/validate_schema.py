@@ -14,6 +14,7 @@ file.json 하나만 주면 그 파일의 role에 맞춰 검사합니다.
 --compare  두 파일을 각각 검사한 뒤, 형식이 같은지 비교합니다 (schema.md "원본과 생성물의 형식 비교").
 --stats    지문 단어 수, 문단 수, 문장 평균 길이, 보기 낱말 수를 문항별로 출력합니다. JSON에 적지 않고 여기서 봅니다.
            구조 검사를 하지 않으므로 수준(level)을 아직 정하지 않은 파일에도 쓸 수 있습니다.
+           .json이 아닌 글 파일을 주면 그 글의 낱말 수와 문장 평균 길이만 냅니다(단어집 모드의 입력 글).
 
 --words-in 입력 글에서 단어를 뽑은 단어집일 때, 표제어가 실제로 그 글에 있는지 봅니다. 못 찾은 단어는 주의로 알립니다
            (불규칙 변화형은 가려내지 못하므로 직접 확인).
@@ -594,6 +595,17 @@ def main() -> int:
         if len(args) < 2:
             print(__doc__)
             return 1
+        if not args[1].lower().endswith(".json"):
+            try:
+                text = Path(args[1]).read_text(encoding="utf-8")
+            except (FileNotFoundError, UnicodeDecodeError) as e:
+                print(f"읽을 수 없음: {args[1]}: {e}", file=sys.stderr)
+                return 1
+            sents = sentence_lengths({"passage": text})
+            print(f"{args[1]}: 영어 낱말 {len(en_words(text))}개, 문장 {len(sents)}개, "
+                  f"문장 평균 길이 {sum(sents) / len(sents):.1f}단어" if sents else f"{args[1]}: 영어 문장을 찾지 못함")
+            print("수준 판단은 references/subject-english.md 1절 참고. 문제지를 통째로 넣으면 보기·발문도 함께 세어집니다.")
+            return 0
         stats(load(args[1]))
         return 0
     if args[0] == "--compare":
