@@ -5,7 +5,7 @@ license: MIT
 compatibility: Designed for Claude Code, claude.ai, and other Agent Skills clients. PDF input requires Python 3 with pdfplumber (scripts/extract.py).
 metadata:
   author: donghyun
-  version: "0.3.0"
+  version: "0.3.1"
   subject: english
 ---
 
@@ -83,7 +83,7 @@ metadata:
 
 - **원본에 없는 것은 지어 넣지 않습니다.** 오답 이유, 해설, 예문, 발문이 원본에 없으면 비워 둡니다.
 - 정답지가 있으면 정답을 옮겨 적고 `answer_key: "provided"`. 없으면 `answer_key: "none"`으로 두고 그대로 진행합니다. 새 문제를 만드는 데 원본 정답은 필요 없습니다. 사용자에게는 "정답지가 없어 형식만 분석했다"고 한 줄로 알립니다. `solved`는 사용자가 원본의 답도 풀어 달라고 했을 때만 씁니다.
-- 제목, 영역 제목과 지시문(`sections`), 묶음 안내문(`group_instruction`), 발문(`stem`)은 **원본 문구 그대로** 적습니다. `[9~12] 다음 글의 빈칸에…`처럼 범위가 붙은 지시문도 범위까지 그대로 적습니다. 문항마다 발문이 따로 없고 영역 지시문이나 묶음 안내문이 그 일을 하면 `stem`을 비워 둡니다. 영역 지시문을 문항 발문으로 복사하지 않습니다.
+- 제목, 영역 제목과 지시문(`sections`), 묶음 안내문(`group_instruction`), 발문(`stem`)은 **원본 문구 그대로** 적습니다. `[9~12] 다음 글의 빈칸에…`처럼 범위가 붙은 지시문도 범위까지 그대로 적습니다. 예외는 줄마다 번호가 붙은 문항(`numbered_rows`)입니다. 그 지시문은 범위와 배점을 빼고 `stem`에 적습니다(`schema.md`). 문항마다 발문이 따로 없고 영역 지시문이나 묶음 안내문이 그 일을 하면 `stem`을 비워 둡니다. 영역 지시문을 문항 발문으로 복사하지 않습니다.
 - 유형은 `schema.md`의 subtype 표에서 고르고, "유형별 담는 법" 표대로 담습니다. 표에 없는 유형은 객관식이면 `other/choice`, 서술형이면 `other/open-response`로 담고 `other_label`에 원본 유형의 이름을 적습니다.
 - 표의 줄마다(또는 빈칸마다) 문항 번호가 붙은 뜻 쓰기·짝짓기·보기 상자 문항은 문항 하나로 담고 `numbered_rows: true`를 적습니다. 번호는 직접 적지 않습니다. 출력할 때 붙고, 뒤 문항의 번호도 그만큼 밀립니다. 빈칸 문제는 영역 제목이 아니라 보기를 보고 나눕니다(단어면 `cloze/single-blank`, 구·절이면 `reading/blank-inference`).
 - 문항마다 보기 언어(`option_language`), 일치·불일치 방향(`polarity`), 단어집의 열(`vocab_columns`), 단어가 지문에서 나왔는지(`words_from_passages`)를 적습니다.

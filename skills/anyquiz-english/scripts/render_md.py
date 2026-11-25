@@ -48,7 +48,7 @@ LABELS = {
         "col": {"word": "단어", "pos": "품사", "meaning": "뜻", "example": "예문", "derived": "파생어"},
         "no": "번호", "ans": "답", "blank_head": "뜻",
         "key": "정답 및 해설", "quick": "정답",
-        "accept": "문맥에 맞는 유사한 뜻도 정답으로 인정한다.",
+        "accept": "뜻이 통하는 다른 표현도 정답으로 인정한다.",
         "choices": "보기", "review": "검토 필요 문항", "review_note": "아래 문항은 검증에서 지적이 남았습니다. 쓰기 전에 직접 확인하세요.", "review_item": "{}번",
         "model": "모범 답안", "scope": "지원 범위 밖 문항",
         "scope_note": "아래 문항은 이 스킬이 지원하는 유형(빈칸·단어집·독해)이 아닙니다. 작성 규칙과 유형별 검사 없이 만들었으니 쓰기 전에 직접 확인하세요.",
@@ -65,7 +65,7 @@ LABELS = {
         "col": {"word": "Word", "pos": "Part of Speech", "meaning": "Meaning", "example": "Example", "derived": "Related Forms"},
         "no": "No.", "ans": "Answer", "blank_head": "Meaning",
         "key": "Answer Key", "quick": "Answers",
-        "accept": "Meanings that fit the context are also accepted.",
+        "accept": "Other wordings with the same meaning are also accepted.",
         "choices": "Choices", "review": "Items to review", "review_note": "These items still had open issues after checking. Please review them before use.", "review_item": "No. {}",
         "model": "Model answer", "scope": "Items outside the supported types",
         "scope_note": "These items are not among the types this skill supports (cloze, vocabulary, reading). They were written without type-specific rules or checks. Please review them before use.",
@@ -242,7 +242,11 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
             head = f"{lo}. {stem}".rstrip()
         if (head + points_label(it, L)).strip():
             B.append({"k": "stem", "t": (head + points_label(it, L)).strip()})
-        if it.get("given"):
+        boxed = st == "open-response" and it.get("given") and it.get("prompt_text")
+        if boxed:
+            # 서술형: 바꿔 쓸 문장이 먼저, 조건이 뒤. 한 상자에 담는다
+            B.append({"k": "quote", "t": it["prompt_text"] + "\n" + it["given"]})
+        elif it.get("given"):
             B.append({"k": "quote", "t": it["given"]})
         if it.get("word_bank"):
             B.append({"k": "quote", "t": f"**{L['bank']}**　" + " · ".join(it["word_bank"])})
@@ -253,7 +257,7 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
             B += [{"k": "p", "t": p} for p in paras]
             if it.get("footnote"):
                 B.append({"k": "note", "t": it["footnote"]})
-        if it.get("prompt_text"):
+        if it.get("prompt_text") and not boxed:
             B.append({"k": "p", "t": it["prompt_text"]})
         if st == "open-response":
             B += [{"k": "p", "t": "_" * 60}, {"k": "p", "t": "_" * 60}]   # 답 쓰는 줄
@@ -358,7 +362,10 @@ def to_markdown(blocks: list[dict]) -> str:
         elif k == "note":
             out += [b["t"].replace("*", "\\*"), ""]  # 각주의 별표는 글자 그대로
         elif k == "quote":
-            out += ["> " + md_inline(ln) for ln in b["t"].splitlines()] + [""]
+            # 줄 끝의 공백 두 칸이 마크다운의 줄바꿈이다. 없으면 여러 줄이 한 문단으로 붙는다
+            lines = b["t"].splitlines()
+            out += ["> " + md_inline(ln) + ("  " if i < len(lines) - 1 and not ln.lstrip().startswith("- ") else "")
+                    for i, ln in enumerate(lines)] + [""]
         elif k == "opts":
             out += ["　".join(md_inline(x) for x in b["items"]), ""] if b["inline"] else [md_inline(x) + "  " for x in b["items"]] + [""]
         elif k == "table":
