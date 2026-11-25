@@ -9,6 +9,8 @@
 - 묶음 안내문은 group_instruction이 있을 때만 찍습니다. 원본이 없는 모드(passage)에서만 기본 문구를 붙입니다.
 - 라벨, 배점 표기, 정답지 제목은 language를 따릅니다. 해설 쪽 문구(뜻 인정 안내, 검토 필요 문항)만 explanation_language를 따릅니다.
 - 보기 번호는 option_marker를 따릅니다. 언어와 무관합니다.
+- numbered_rows인 문항은 줄(빈칸)마다 문항 번호가 붙고, 그만큼 뒤 문항의 번호가 밀립니다.
+- type이 other인 문항(지원 범위 밖)이 있으면 맨 위에 번호와 유형 이름을 적은 안내를 붙입니다.
 - 유형별 출력은 references/schema.md "유형별 담는 법"을 따릅니다.
   (insertion·irrelevant는 보기 목록을 찍지 않음, 짝짓기는 표, word-bank는 보기 상자 등)
 - --paper-only: 정답·해설 없이 문제지만 냅니다. 독립 풀이(검증 단계)에 넘길 때 씁니다.
@@ -31,15 +33,16 @@ MARKERS = {
 }
 POSITION = {"insertion", "irrelevant"}
 MATCH = {"synonym-match", "definition-match"}
+BLANK = re.compile(r"_{3,}")
 
 LABELS = {
     "ko": {
         "sheet": "이름: ______________　날짜: ______________　점수: ______ / {}점",
         "sheet0": "이름: ______________　날짜: ______________",
         "score_head": ["영역", "문항", "배점", "합계"],
-        "range": "{}~{}번 ({}문항)", "one": "{}번",
+        "range": "{}~{}번 ({}문항)", "one": "{}번", "span": "{}~{}",
         "each": "각 {}점", "mixed": "문항별 배점 참고", "none": "배점 없음", "total": "합계", "pts": "{}점",
-        "pts_item": "[{}점]", "pts_part": "[{}점, 각 {}점]",
+        "pts_item": "[{}점]", "pts_part": "[{}점, 각 {}점]", "pts_each": "[각 {}점]",
         "group": "[{}~{}] 다음 글을 읽고 물음에 답하시오.",
         "bank": "보기",
         "col": {"word": "단어", "pos": "품사", "meaning": "뜻", "example": "예문", "derived": "파생어"},
@@ -47,14 +50,16 @@ LABELS = {
         "key": "정답 및 해설", "quick": "정답",
         "accept": "문맥에 맞는 유사한 뜻도 정답으로 인정한다.",
         "choices": "보기", "review": "검토 필요 문항", "review_note": "아래 문항은 검증에서 지적이 남았습니다. 쓰기 전에 직접 확인하세요.", "review_item": "{}번",
+        "model": "모범 답안", "scope": "지원 범위 밖 문항",
+        "scope_note": "아래 문항은 이 스킬이 지원하는 유형(빈칸·단어집·독해)이 아닙니다. 작성 규칙과 유형별 검사 없이 만들었으니 쓰기 전에 직접 확인하세요.",
     },
     "en": {
         "sheet": "Name: ______________　Date: ______________　Score: ______ / {}",
         "sheet0": "Name: ______________　Date: ______________",
         "score_head": ["Section", "Questions", "Points", "Total"],
-        "range": "{}–{} ({} questions)", "one": "{}",
+        "range": "{}–{} ({} questions)", "one": "{}", "span": "{}–{}",
         "each": "{} each", "mixed": "see each item", "none": "Not scored", "total": "Total", "pts": "{}",
-        "pts_item": "[{} points]", "pts_part": "[{} points: {} each]",
+        "pts_item": "[{} points]", "pts_part": "[{} points: {} each]", "pts_each": "[{} points each]",
         "group": "[{}–{}] Read the following passage and answer the questions.",
         "bank": "Word Bank",
         "col": {"word": "Word", "pos": "Part of Speech", "meaning": "Meaning", "example": "Example", "derived": "Related Forms"},
@@ -62,12 +67,41 @@ LABELS = {
         "key": "Answer Key", "quick": "Answers",
         "accept": "Meanings that fit the context are also accepted.",
         "choices": "Choices", "review": "Items to review", "review_note": "These items still had open issues after checking. Please review them before use.", "review_item": "No. {}",
+        "model": "Model answer", "scope": "Items outside the supported types",
+        "scope_note": "These items are not among the types this skill supports (cloze, vocabulary, reading). They were written without type-specific rules or checks. Please review them before use.",
     },
 }
 
 
 def num(p) -> str:
     return str(int(p)) if float(p).is_integer() else str(p)
+
+
+def row_count(it: dict) -> int:
+    st = it["subtype"]
+    if st == "meaning-write":
+        return len(it.get("vocab_entries", []))
+    if st in MATCH:
+        return len(it.get("match_left", []))
+    if st == "word-bank":
+        return len(BLANK.findall(it.get("passage", "")))
+    return 1
+
+
+def numbering(items: list[dict]) -> dict[int, tuple[int, int]]:
+    """문항 id → 문제지에 찍히는 번호 (처음, 끝). 줄마다 번호가 붙는 문항은 줄 수만큼 번호를 차지한다.
+    validate_schema.py의 같은 이름 함수와 같아야 한다."""
+    out: dict[int, tuple[int, int]] = {}
+    n = 1
+    for it in items:
+        k = max(row_count(it), 1) if it.get("numbered_rows") else 1
+        out[it["id"]] = (n, n + k - 1)
+        n += k
+    return out
+
+
+def span(lo: int, hi: int, L: dict) -> str:
+    return str(lo) if lo == hi else L["span"].format(lo, hi)
 
 
 def default_labels(n: int, kind: str) -> list[str]:
@@ -77,15 +111,19 @@ def default_labels(n: int, kind: str) -> list[str]:
 
 
 def match_labels(it: dict) -> tuple[list[str], list[str]]:
-    L = it.get("match_left_labels") or default_labels(len(it["match_left"]), "left")
-    R = it.get("match_right_labels") or default_labels(len(it["match_right"]), "right")
-    return L, R
+    n = len(it["match_left"])
+    # 줄마다 번호가 붙으면 번호가 왼쪽 기호 노릇을 한다. 원본에 기호도 있으면 match_left_labels에 적는다.
+    left = it.get("match_left_labels") or ([""] * n if it.get("numbered_rows") else default_labels(n, "left"))
+    right = it.get("match_right_labels") or default_labels(len(it["match_right"]), "right")
+    return left, right
 
 
 def points_label(it: dict, L: dict) -> str:
     if not it["points"]:
         return ""
     if it.get("points_per_part"):
+        if it.get("numbered_rows"):
+            return " " + L["pts_each"].format(num(it["points_per_part"]))
         return " " + L["pts_part"].format(num(it["points"]), num(it["points_per_part"]))
     return " " + L["pts_item"].format(num(it["points"]))
 
@@ -94,15 +132,20 @@ def paragraphs(text: str) -> list[str]:
     return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
 
 
-def score_table(exam: dict, L: dict) -> dict:
+def score_table(exam: dict, L: dict, disp: dict) -> dict:
     by_id = {it["id"]: it for it in exam["items"]}
     rows, total = [], 0
     for s in exam["sections"]:
         its = [by_id[i] for i in range(s["first"], s["last"] + 1) if i in by_id]
-        pts = [it["points"] for it in its]
-        ssum = sum(pts)
+        pts: list[float] = []          # 찍히는 번호 하나마다의 배점
+        for it in its:
+            lo, hi = disp[it["id"]]
+            k = hi - lo + 1
+            pts += [it.get("points_per_part") or it["points"] / k] * k if k > 1 else [it["points"]]
+        ssum = sum(it["points"] for it in its)
         total += ssum
-        rng = L["one"].format(s["first"]) if s["first"] == s["last"] else L["range"].format(s["first"], s["last"], len(its))
+        first, last = disp[its[0]["id"]][0], disp[its[-1]["id"]][1]
+        rng = L["one"].format(first) if first == last else L["range"].format(first, last, last - first + 1)
         if its and all(it["subtype"] == "word-list" for it in its):
             rng = "-"  # 단어집은 번호 없이 나온다
         if ssum == 0:
@@ -113,20 +156,24 @@ def score_table(exam: dict, L: dict) -> dict:
             how = L["pts"].format(num(pts[0]))
         else:
             how = L["mixed"]
-        rows.append([s["title"], rng, how, L["pts"].format(num(ssum)) if ssum else "-"])
+        # 영역 제목의 꼬리(— 1~3번 / 총 50점)는 옆 칸에 따로 찍히므로 배점표에서는 뗀다
+        rows.append([s["title"].split(" — ")[0], rng, how, L["pts"].format(num(ssum)) if ssum else "-"])
     rows.append([f"**{L['total']}**", "", "", f"**{L['pts'].format(num(total))}**"])
     return {"k": "table", "head": L["score_head"], "rows": rows}
 
 
-def answer_text(it: dict, nums: list[str]) -> str:
+def answer_text(it: dict, nums: list[str], lo: int = 0) -> str:
     a, st = it.get("answer"), it["subtype"]
+    numbered = bool(it.get("numbered_rows"))
     if a is None:
         return ""
     if st == "word-bank":
-        return ", ".join(a)
+        return " · ".join(f"{lo + i} {w}" for i, w in enumerate(a)) if numbered else ", ".join(a)
+    if st == "open-response":
+        return " / ".join(a)
     if st in MATCH:
         ll, rl = match_labels(it)
-        return " ".join(f"{ll[i]}–{rl[x].rstrip('.')}" for i, x in enumerate(a))
+        return " ".join(f"{(ll[i] or str(lo + i))}–{rl[x].rstrip('.')}" for i, x in enumerate(a))
     if isinstance(a, int) and it.get("options"):
         return nums[a]
     return str(a)
@@ -138,6 +185,8 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
     K = LABELS[exam.get("explanation_language", exam["language"])]
     nums = MARKERS[exam.get("option_marker", "circled")]
     items = exam["items"]
+    disp = numbering(items)
+    label = {i: span(lo, hi, L) for i, (lo, hi) in disp.items()}
     total = sum(it["points"] for it in items)
     group_ids: dict[str, list[int]] = {}
     for it in items:
@@ -146,18 +195,26 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
     sec_start = {s["first"]: s for s in exam.get("sections", [])}
 
     B: list[dict] = []
+    outside = [it for it in items if it["type"] == "other"]
+    if outside and not paper_only:
+        B.append({"k": "quote", "t": f"**{K['scope']}**　{K['scope_note']}\n"
+                  + "\n".join(f"- {K['review_item'].format(label[it['id']])}: {it.get('other_label', '')}" for it in outside)})
     if exam.get("review") and not paper_only:
         B.append({"k": "quote", "t": f"**{K['review']}**　{K['review_note']}\n"
-                  + "\n".join(f"- {K['review_item'].format(r['id'])}: {r['reason']}" for r in exam["review"])})
-    B += [{"k": "title", "t": exam["title"]},
-          {"k": "p", "t": L["sheet"].format(num(total)) if total else L["sheet0"]}]
+                  + "\n".join(f"- {K['review_item'].format(label.get(r['id'], r['id']))}: {r['reason']}" for r in exam["review"])})
+    B.append({"k": "title", "t": exam["title"]})
+    if exam.get("subtitle"):
+        B.append({"k": "p", "t": exam["subtitle"]})
+    B.append({"k": "p", "t": L["sheet"].format(num(total)) if total else L["sheet0"]})
     if exam.get("sections") and total:
-        B.append(score_table(exam, L))
+        B.append(score_table(exam, L, disp))
     B.append({"k": "rule"})
 
     seen: set[str] = set()
     for it in items:
         st = it["subtype"]
+        lo, hi = disp[it["id"]]
+        numbered = bool(it.get("numbered_rows"))
         if it["id"] in sec_start:
             s = sec_start[it["id"]]
             B.append({"k": "section", "t": s["title"]})
@@ -168,7 +225,8 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
             seen.add(g)
             ids = group_ids[g]
             # 원본을 본뜨는 format 모드에서는 원본에 없던 안내문을 지어 붙이지 않는다
-            lead = it.get("group_instruction") or (L["group"].format(ids[0], ids[-1]) if exam.get("mode") != "format" else "")
+            lead = it.get("group_instruction") or (
+                L["group"].format(disp[ids[0]][0], disp[ids[-1]][1]) if exam.get("mode") != "format" else "")
             if lead:
                 B.append({"k": "strong", "t": lead})
             B += [{"k": "p", "t": p} for p in paragraphs(it["passage"])]
@@ -176,7 +234,12 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
                 B.append({"k": "note", "t": it["footnote"]})
 
         stem = it.get("stem", "")
-        head = stem if st == "word-list" else f"{it['id']}. {stem}".rstrip()
+        if st == "word-list":
+            head = stem
+        elif numbered:
+            head = f"[{label[it['id']]}] {stem}".rstrip()
+        else:
+            head = f"{lo}. {stem}".rstrip()
         if (head + points_label(it, L)).strip():
             B.append({"k": "stem", "t": (head + points_label(it, L)).strip()})
         if it.get("given"):
@@ -184,11 +247,16 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
         if it.get("word_bank"):
             B.append({"k": "quote", "t": f"**{L['bank']}**　" + " · ".join(it["word_bank"])})
         if it.get("passage") and not g:
-            B += [{"k": "p", "t": p} for p in paragraphs(it["passage"])]
+            paras = paragraphs(it["passage"])
+            if numbered and st == "word-bank":
+                paras = [f"{lo + i}. {p}" for i, p in enumerate(paras)]   # 문장마다 번호
+            B += [{"k": "p", "t": p} for p in paras]
             if it.get("footnote"):
                 B.append({"k": "note", "t": it["footnote"]})
         if it.get("prompt_text"):
             B.append({"k": "p", "t": it["prompt_text"]})
+        if st == "open-response":
+            B += [{"k": "p", "t": "_" * 60}, {"k": "p", "t": "_" * 60}]   # 답 쓰는 줄
         opts = it.get("options")
         if opts and st not in POSITION:
             inline = all(len(o.split()) <= 3 for o in opts) and sum(len(o) for o in opts) <= 60
@@ -198,13 +266,19 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
             left, right = it["match_left"], it["match_right"]
             rows = []
             for i in range(max(len(left), len(right))):
-                rows.append([f"{ll[i]} {left[i]}" if i < len(left) else "",
-                             "____" if i < len(left) else "",
-                             f"{rl[i]} {right[i]}" if i < len(right) else ""])
-            B.append({"k": "table", "head": [L["col"]["word"], L["ans"], L["choices"]], "rows": rows})
+                row = [f"{ll[i]} {left[i]}".strip() if i < len(left) else "",
+                       "____" if i < len(left) else "",
+                       f"{rl[i]} {right[i]}" if i < len(right) else ""]
+                rows.append(([lo + i if i < len(left) else ""] if numbered else []) + row)
+            head_row = ([L["no"]] if numbered else []) + [L["col"]["word"], L["ans"], L["choices"]]
+            B.append({"k": "table", "head": head_row, "rows": rows})
         if st == "meaning-write":
-            rows = [[n, e["word"], "____________________"] for n, e in enumerate(it["vocab_entries"], 1)]
-            B.append({"k": "table", "head": [L["no"], L["col"]["word"], L["blank_head"]], "rows": rows})
+            show_pos = "pos" in (it.get("vocab_columns") or [])
+            start = lo if numbered else 1
+            rows = [[start + n, e["word"]] + ([e.get("pos", "")] if show_pos else []) + ["____________________"]
+                    for n, e in enumerate(it["vocab_entries"])]
+            B.append({"k": "table", "rows": rows,
+                      "head": [L["no"], L["col"]["word"]] + ([L["col"]["pos"]] if show_pos else []) + [L["blank_head"]]})
         if st == "word-list":
             cols = it["vocab_columns"]
             rows = [[n] + [", ".join(e[c]) if isinstance(e.get(c), list) else e.get(c, "") for c in cols]
@@ -215,26 +289,33 @@ def build_blocks(exam: dict, paper_only: bool = False) -> list[dict]:
         return B  # 단어집뿐이면 정답·해설 쪽이 비므로 붙이지 않는다
 
     B += [{"k": "break"}, {"k": "title", "t": f"{exam['title']} — {L['key']}"}]
-    quick = [f"{it['id']}{answer_text(it, nums)}" for it in items
+    quick = [f"{disp[it['id']][0]}{answer_text(it, nums)}" for it in items
              if isinstance(it.get("answer"), int) and it.get("options")]
     if quick:
         B.append({"k": "strong", "t": f"{L['quick']}: " + " ".join(quick)})
     for it in items:
         st = it["subtype"]
+        lo, hi = disp[it["id"]]
+        numbered = bool(it.get("numbered_rows"))
         if st == "word-list":
             continue
         if st == "meaning-write":
-            B.append({"k": "p", "t": f"**{it['id']}.** {K['accept']}"})
-            rows = [[n, e["word"], e.get("meaning", "")] for n, e in enumerate(it["vocab_entries"], 1)]
+            B.append({"k": "p", "t": f"**{label[it['id']]}.** {K['accept']}"})
+            start = lo if numbered else 1
+            rows = [[start + n, e["word"], e.get("meaning", "")] for n, e in enumerate(it["vocab_entries"])]
             B.append({"k": "table", "head": [K["no"], K["col"]["word"], K["col"]["meaning"]], "rows": rows})
             continue
-        line = f"**{it['id']}. {answer_text(it, nums)}**"
+        if st == "open-response":
+            line = f"**{label[it['id']]}. {K['model']}** {answer_text(it, nums)}"
+        else:
+            line = f"**{label[it['id']]}. {answer_text(it, nums, lo)}**"
         if it.get("explanation"):
             line += f" — {it['explanation']}"
         B.append({"k": "p", "t": line})
         if st in MATCH and isinstance(it.get("answer"), list):
             ll, rl = match_labels(it)
-            pairs = [f"{ll[i]} {it['match_left'][i]} ↔ {rl[x]} {it['match_right'][x]}" for i, x in enumerate(it["answer"])]
+            pairs = [f"{str(lo + i) + ' ' if numbered else ''}{ll[i]} {it['match_left'][i]} ↔ {rl[x]} {it['match_right'][x]}"
+                     .replace("  ", " ").strip() for i, x in enumerate(it["answer"])]
             B.append({"k": "bullets", "items": pairs})
         notes = it.get("distractor_notes") or []
         opts = it.get("options")

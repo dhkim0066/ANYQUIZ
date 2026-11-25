@@ -39,6 +39,7 @@
 | `role` | `source` \| `generated` | 예 | 위 표 |
 | `answer_key` | `provided` \| `solved` \| `none` | source만 예 | 원본 정답의 출처. `provided`: 원본에 정답지가 있었음. `solved`: 정답지가 없는데 사용자가 원본의 답도 풀어 달라고 해서 분석 단계가 직접 풂. `none`: 정답을 적지 않음. **새 문제를 만드는 데 원본 정답은 필요 없으므로 `none`이어도 진행합니다** |
 | `title` | 문자열 | 예 | 문제지 제목. `format` 모드의 생성물은 원본 제목을 그대로 씁니다 |
+| `subtitle` | 문자열 | 아니오 | 제목 바로 아래의 둘째 줄(학년·과목·시험 이름 등). 원본에 있을 때만, 원본 그대로 |
 | `mode` | `format` \| `passage` \| `vocab` | 예 | |
 | `language` | `ko` \| `en` | 예 | **발문** 언어 |
 | `explanation_language` | `ko` \| `en` | 아니오 | 해설 언어. 없으면 `language`와 같음. 영어 발문에 한국어 해설인 문제지는 `language: en`, `explanation_language: ko` |
@@ -48,7 +49,7 @@
 | `items` | 배열 | 예 | 문항. 1개 이상 |
 | `review` | 배열 | 아니오 (generated만) | 검증에서 두 번 고친 뒤에도 지적이 남은 문항. `[{"id": 6, "reason": "…"}]`. 출력 맨 위에 "검토 필요 문항"으로 찍힙니다 |
 
-`sections[]`의 항목: `title`(영역 제목, 원본 그대로), `instruction`(영역 공통 지시문, 선택), `first`·`last`(그 영역의 첫·마지막 문항 번호).
+`sections[]`의 항목: `title`(영역 제목, 원본 그대로), `instruction`(영역 공통 지시문, 선택), `first`·`last`(그 영역의 첫·마지막 문항 `id`). 영역 제목에 범위와 배점이 붙어 있으면(`Ⅰ. 독해 — 1~8번 / 총 48점`) 꼬리까지 그대로 적습니다. 배점표의 영역 칸에는 ` — ` 앞부분만 찍힙니다.
 
 **안내문을 어디에 적는가.** 영역 제목 바로 아래에서 그 영역의 문항 전체에 걸리는 지시문은 `sections[].instruction`입니다(예: `Choose the best word for each blank.`, `[9~12] 다음 글의 빈칸에…`). 지문 하나에 딸린 문항들 위의 안내문은 `group_instruction`입니다(예: `[1~3] 다음 글을 읽고 물음에 답하시오.`). 한 문장이 두 일을 겸하면 `sections[].instruction`에 한 번만 적습니다. `format` 모드의 출력은 적힌 안내문만 찍고, 원본에 없던 묶음 안내문을 만들어 붙이지 않습니다. 안내문에 든 배점 문구(`각 4점`)는 원본 그대로 두고, 숫자는 `points`에도 적습니다.
 
@@ -119,10 +120,14 @@
 | `reading` | `insertion` | 문장 삽입 |
 | `reading` | `irrelevant` | 흐름과 무관한 문장 |
 | `reading` | `summary` | 요약문 완성 |
+| `other` | `choice` | **지원 범위 밖**의 객관식 (어법, 낱말 쓰임, 가리키는 대상이 다른 것 등) |
+| `other` | `open-response` | **지원 범위 밖**의 서술형 (영작, 문장 전환 등) |
 
 **빈칸 문제의 분류 기준.** 영역 제목이 아니라 보기를 봅니다. 보기 낱말 수의 중앙값이 2 이하면 `cloze/single-blank`, 3 이상이면 `reading/blank-inference`입니다. 검증기가 이 기준으로 검사합니다.
 
-새 subtype이 필요하면 이 표와 아래 규약 표에 먼저 추가하고 `question-types.md`에 규칙을 씁니다.
+**표에 없는 유형은 `other`로 담습니다.** 가까운 유형에 끼워 담지 않습니다. `other` 문항에는 `other_label`(원본 유형의 이름, 예: `"어법상 틀린 것"`, `"서술형 영작"`)을 적습니다. 출력 맨 위에 번호와 이 이름이 "지원 범위 밖 문항"으로 찍히고, 검증기는 주의로 알립니다. 원본 분석과 생성물은 같은 문항을 같은 `other_label`로 담아야 합니다.
+
+스킬을 고치는 사람에게: 새 subtype을 정식으로 더할 때는 이 표와 아래 규약 표에 먼저 추가하고 `question-types.md`에 규칙을 씁니다.
 
 ## 유형별 담는 법
 
@@ -136,16 +141,27 @@
 | `single-blank` (한 지문에 번호 빈칸 여러 개) | 빈칸마다 `(문항번호) ____`. 예: `(11) ____` | `passage_group`으로 묶음 | 단어 | 인덱스 |
 | `multi-blank` | 자리마다 `(A)【umbrella / notebook】` 또는 `(A) ____` | | 조합. 자리 구분은 ` – `. 예: `"umbrella – close – dry"` | 인덱스 |
 | `word-bank` | 빈칸마다 `____`. 원본에 `(가)` 같은 라벨이 있으면 `(가) ____` | `word_bank`: 보기 상자의 낱말 배열 | 없음 | **빈칸 순서대로 낱말 배열**. 예: `["nose","scarf","hat","arms"]` |
-| `order` | `(A) …`, `(B) …`, `(C) …` 단락을 문제지에 나온 순서대로, 빈 줄로 구분 | `given`: 주어진 글 | 순서 조합. 구분은 `-`. 예: `"(B)-(C)-(A)"` | 인덱스 |
+| `order` | `(A) …`, `(B) …`, `(C) …` 단락을 문제지에 나온 순서대로, 빈 줄로 구분 | `given`: 주어진 글 | 순서 조합. 구분 기호는 원본대로(`-` 또는 `→`). 예: `"(B)-(C)-(A)"`, `"(B) → (C) → (A)"` | 인덱스 |
+| `order` (장문 독해형: 주어진 글이 묶음 지문의 (A)) | 묶음 지문에 `(A) …`~`(D) …` 네 단락. `passage_group`으로 묶음 | `given`은 **적지 않음** | (B)(C)(D)의 순서 조합. (A)는 넣지 않음 | 인덱스 |
+| `other/choice` | 지문이 있으면 지문(묶음이면 묶음 지문) | `other_label` 필수. 문항에 딸린 별도의 글(어법 문장 등)은 `prompt_text` | 보기 | 인덱스 |
+| `other/open-response` | 지문이 있으면 지문 | `other_label` 필수. 우리말 문장·주어진 표현·조건은 `given`(줄바꿈으로 구분), 바꿔 쓸 문장은 `prompt_text` | 없음 | **모범 답안 문자열 배열**. 예: `["We put off the picnic because of the rain."]`. 채점 기준은 `explanation`에 |
 | `insertion` | `( ① )`~`( ⑤ )` 위치 표시가 박힌 본문 | `given`: 주어진 문장 | 위치 기호만. 예: `["①","②","③","④","⑤"]` | 인덱스 |
 | `irrelevant` | 문장 앞에 `①`~`④` 번호가 붙은 본문 | | 번호 기호만 | 인덱스 |
 | `synonym-match`, `definition-match` | 없음 | `match_left`: 왼쪽 낱말 배열. `match_right`: 오른쪽 배열(오답을 섞어 더 길어도 됨). `match_left_labels`·`match_right_labels`: 원본의 기호를 괄호·마침표까지 그대로(예: `["(가)","(나)"]`, `["A.","B."]`), 선택 | 없음 | **`match_left` 순서대로 `match_right`의 인덱스 배열**. 예: `[5,7,2]` |
 | `word-list` | 없음 | `vocab_entries`, `vocab_columns` | 없음 | 없음 |
-| `meaning-write` | 없음 | `vocab_entries` (`word`와 `meaning`) | 없음 | 없음. 정답은 각 항목의 `meaning` |
+| `meaning-write` | 없음 | `vocab_entries` (`word`와 `meaning`). 문제지에 품사를 보이려면 `vocab_columns: ["word","pos","meaning"]`과 항목마다 `pos` | 없음 | 없음. 정답은 각 항목의 `meaning` |
 
 - 보기가 위치·번호 기호뿐인 `insertion`·`irrelevant`는 출력할 때 보기 목록을 찍지 않습니다. 기호가 이미 지문 안에 있기 때문입니다.
 - 짝짓기 유형에 `vocab_entries`를 쓰지 않습니다. 쓰면 문제지에 뜻이 함께 찍혀 답이 드러납니다.
 - `word-list`는 문항 번호 없이 출력됩니다. 배점이 없으면 `points: 0`.
+
+**줄마다 번호가 붙은 문항 (`numbered_rows`).** 단어 시험지처럼 표의 줄이나 빈칸 문장마다 문항 번호가 붙어 있으면(1~12번 뜻 쓰기, 13~20번 짝짓기), 그 표를 문항 하나로 담고 `numbered_rows: true`를 적습니다. `meaning-write`, `synonym-match`, `definition-match`, `word-bank`에 쓸 수 있습니다.
+
+- 번호는 어디에도 적지 않습니다. 출력할 때 줄마다 붙고(`[1~12] 발문 [각 2점]`), 뒤 문항의 번호와 배점표의 범위도 그에 맞게 나옵니다. 문항 `id`는 여전히 1, 2, 3…입니다.
+- `stem`에는 범위(`[1~12]`)와 배점(`[각 2점]`)을 빼고 지시문만 적습니다. 줄당 배점은 `points_per_part`, 합계는 `points`.
+- 짝짓기의 왼쪽에 번호만 있고 기호가 없으면 `match_left_labels`를 적지 않습니다. 번호와 기호가 다 있으면(`13 (a) assist`) 기호만 적습니다.
+- `word-bank`는 문장 하나를 문단 하나로(빈 줄로 구분), 문단마다 빈칸 하나를 둡니다.
+- 뒤에 오는 묶음 지문의 번호 빈칸은 **문제지에 찍히는 번호**로 적습니다(검증기 메시지가 알려 줍니다).
 
 ## 단어 항목 (`vocab_entries[]`)
 

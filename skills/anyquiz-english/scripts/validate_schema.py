@@ -41,12 +41,15 @@ SUBTYPES = {
     "vocab": {"word-list", "meaning-write", "synonym-match", "definition-match"},
     "reading": {"main-idea", "title", "blank-inference", "detail", "reference", "implied-meaning",
                 "inference", "order", "insertion", "irrelevant", "summary"},
+    # 지원 유형 밖. 만들기는 하되 출력 맨 위에 따로 알린다 (작성 규칙과 유형별 검사가 없음)
+    "other": {"choice", "open-response"},
 }
+ROWS = {"meaning-write", "synonym-match", "definition-match", "word-bank"}   # 줄마다 번호를 붙일 수 있는 유형
 POSITION = {"insertion", "irrelevant"}            # 보기가 지문 안의 위치·번호 기호
 COMBO = {"order", "multi-blank", "summary"}       # 보기가 조합
 MATCH = {"synonym-match", "definition-match"}
 NO_ANSWER = {"word-list", "meaning-write"}
-NO_OPTIONS = MATCH | NO_ANSWER | {"word-bank"}
+NO_OPTIONS = MATCH | NO_ANSWER | {"word-bank", "open-response"}
 BLANK = re.compile(r"_{3,}")
 UNDERLINE = re.compile(r"(?<!_)__(?!_)(.+?)(?<!_)__(?!_)")
 SAYS_UNDERLINE = re.compile(r"밑줄|underlined", re.I)
@@ -74,6 +77,28 @@ def sentence_lengths(it: dict) -> list[int]:
 
 def paragraph_count(it: dict) -> int:
     return len([p for p in re.split(r"\n\s*\n", it.get("passage", "")) if p.strip()])
+
+
+def row_count(it: dict) -> int:
+    st = it.get("subtype")
+    if st == "meaning-write":
+        return len(it.get("vocab_entries", []))
+    if st in MATCH:
+        return len(it.get("match_left", []))
+    if st == "word-bank":
+        return len(BLANK.findall(it.get("passage", "")))
+    return 1
+
+
+def numbering(items: list[dict]) -> dict[int, tuple[int, int]]:
+    """문항 id → 문제지에 찍히는 번호 (처음, 끝). render_md.py의 같은 이름 함수와 같아야 한다."""
+    out: dict[int, tuple[int, int]] = {}
+    n = 1
+    for it in items:
+        k = max(row_count(it), 1) if it.get("numbered_rows") else 1
+        out[it["id"]] = (n, n + k - 1)
+        n += k
+    return out
 
 
 def load(p: str) -> dict:
@@ -140,10 +165,11 @@ def structure_errors(exam: dict) -> list[str]:
 
     group_passage = {it["passage_group"]: it.get("passage", "") for it in items if it.get("passage_group")}
     want_answer = needs_answers(exam)
+    disp = numbering(items)
     for it in items:
         if SAYS_UNDERLINE.search(it.get("stem", "")):
             where = " ".join([it.get("stem", ""), it.get("passage", ""), group_passage.get(it.get("passage_group"), ""),
-                              it.get("given", ""), " ".join(it.get("options") or [])])
+                              it.get("given", ""), it.get("prompt_text", ""), " ".join(it.get("options") or [])])
             if "**" in where and not UNDERLINE.search(where):
                 errs.append(f"item {it['id']}: 발문은 밑줄인데 표시가 굵게(**…**)임. 밑줄 대상은 __…__로 감쌈")
         tag, st = f"item {it['id']}", it["subtype"]
@@ -163,6 +189,18 @@ def structure_errors(exam: dict) -> list[str]:
             if field in it:
                 errs.append(f"{tag}: {st}에는 {field}를 쓰지 않음 ({why})")
 
+        if it["type"] == "other":
+            need("other_label", "원본 유형의 이름. 예: 어법, 서술형 영작")
+        else:
+            forbid("other_label", "type이 other인 문항에만 씀")
+        if it.get("numbered_rows"):
+            if st not in ROWS:
+                errs.append(f"{tag}: numbered_rows는 뜻 쓰기·짝짓기·보기 상자(word-bank)에만 씀")
+            elif st == "word-bank":
+                n_par = len([p for p in re.split(r"\n\s*\n", passage) if p.strip()])
+                if n_par != len(BLANK.findall(passage)):
+                    errs.append(f"{tag}: numbered_rows인 word-bank는 문단 하나에 빈칸 하나 "
+                                f"(문단 {n_par}, 빈칸 {len(BLANK.findall(passage))}). 번호는 적지 않음(출력할 때 붙음)")
         if "stem" not in it and it["type"] != "cloze" and st != "word-list" and it["id"] not in covered:
             errs.append(f"{tag}: stem(발문)이 없음. 생략하려면 그 영역의 sections[].instruction이나 "
                         "묶음의 group_instruction이 발문을 대신해야 함 (원본에 없는 발문을 지어 넣지 말 것)")
@@ -180,13 +218,18 @@ def structure_errors(exam: dict) -> list[str]:
             need("option_language", "보기 언어 ko/en")
 
         if st == "order":
-            need("given", "주어진 글")
-            for m in ("(A)", "(B)", "(C)"):
+            # 장문 독해형: 주어진 글이 묶음 지문 안의 (A)이고 (B)(C)(D)를 배열한다. given을 따로 적지 않는다.
+            in_group = bool(it.get("passage_group")) and "given" not in it and "(D)" in passage
+            if not in_group:
+                need("given", "주어진 글. 주어진 글이 묶음 지문의 (A)이면 지문에 (A)~(D)를 적고 given은 생략")
+            for m in (("(A)", "(B)", "(C)", "(D)") if in_group else ("(A)", "(B)", "(C)")):
                 if m not in passage:
                     errs.append(f"{tag}: order의 passage에 {m} 단락이 없음")
             for o in opts or []:
-                if not re.fullmatch(r"\([A-Z]\)(-\([A-Z]\))+", o):
-                    errs.append(f"{tag}: order 보기는 '(B)-(C)-(A)' 형식이어야 함: {o!r}")
+                if not re.fullmatch(r"\([A-Z]\)(\s*(?:-|–|—|→)\s*\([A-Z]\))+", o):
+                    errs.append(f"{tag}: order 보기는 '(B)-(C)-(A)' 또는 '(B) → (C) → (A)' 형식이어야 함: {o!r}")
+                elif in_group and "(A)" in o:
+                    errs.append(f"{tag}: (A)가 주어진 글이면 보기에는 (B)(C)(D)만 씀: {o!r}")
         elif st == "insertion":
             need("given", "주어진 문장")
         if st in POSITION:
@@ -199,8 +242,8 @@ def structure_errors(exam: dict) -> list[str]:
         if st == "single-blank" and passage:
             if not BLANK.search(passage):
                 errs.append(f"{tag}: 지문에 빈칸(____)이 없음")
-            if it.get("passage_group") and f"({it['id']})" not in passage:
-                errs.append(f"{tag}: 묶음 지문의 빈칸에는 문항 번호를 붙임. 지문에 '({it['id']})'가 없음")
+            if it.get("passage_group") and f"({disp[it['id']][0]})" not in passage:
+                errs.append(f"{tag}: 묶음 지문의 빈칸에는 문항 번호를 붙임. 지문에 '({disp[it['id']][0]})'가 없음")
         if st == "multi-blank" and passage and "(A)" not in passage:
             errs.append(f"{tag}: multi-blank 지문에 (A) 자리가 없음")
         if st == "word-bank":
@@ -227,8 +270,16 @@ def structure_errors(exam: dict) -> list[str]:
                             errs.append(f"{tag}: '{e['word']}'에 {col} 열 값이 없음")
         if st == "meaning-write":
             need("vocab_entries")
-        if st != "word-list":
-            forbid("vocab_columns", "word-list 전용")
+            cols = it.get("vocab_columns")
+            if cols is not None:
+                if set(cols) - {"word", "pos", "meaning"}:
+                    errs.append(f"{tag}: 뜻 쓰기의 vocab_columns는 word, pos, meaning만 씀 (품사를 문제지에 보일 때 pos를 넣음)")
+                if "pos" in cols:
+                    for e in it.get("vocab_entries", []):
+                        if not e.get("pos"):
+                            errs.append(f"{tag}: '{e['word']}'에 pos 값이 없음")
+        if st not in ("word-list", "meaning-write"):
+            forbid("vocab_columns", "단어집과 뜻 쓰기 전용")
 
         # 빈칸 문제의 분류 기준: 보기 낱말 수 중앙값
         if opts and st in ("single-blank", "blank-inference"):
@@ -246,7 +297,10 @@ def structure_errors(exam: dict) -> list[str]:
                 errs.append(f"{tag}: answer가 없음")
             continue
         a = it["answer"]
-        if st == "word-bank":
+        if st == "open-response":
+            if not (isinstance(a, list) and all(isinstance(x, str) for x in a)):
+                errs.append(f"{tag}: 서술형의 answer는 모범 답안 문자열 배열 (하나 이상)")
+        elif st == "word-bank":
             n_blank = len(BLANK.findall(passage))
             if not (isinstance(a, list) and all(isinstance(x, str) for x in a)):
                 errs.append(f"{tag}: word-bank의 answer는 빈칸 순서대로 낱말 배열")
@@ -295,6 +349,11 @@ def structure_errors(exam: dict) -> list[str]:
     for it in items:
         if "group_instruction" in it and not it.get("passage_group"):
             errs.append(f"item {it['id']}: passage_group 없이 group_instruction만 있음")
+    outside = [it for it in items if it["type"] == "other"]
+    if outside and role == "generated":
+        nums = ", ".join(str(disp[it["id"]][0]) for it in outside)
+        WARNINGS.append(f"지원 범위 밖 문항 {len(outside)}개 ({nums}번). 작성 규칙과 유형별 검사 없이 통과한 것이므로 "
+                        "형식 충실도에 넣지 말고 따로 셈. 출력 맨 위에 안내가 붙음")
     return errs
 
 
@@ -504,6 +563,11 @@ def compare_errors(src: dict, gen: dict) -> list[str]:
         same("vocab_entries", "단어 항목 수", size)
         same("vocab_columns", "단어집 열")
         same("words_from_passages", "지문 출처 제약", bool)
+        same("numbered_rows", "줄마다 번호", bool)
+        same("other_label", "지원 범위 밖 유형 이름")
+        pt_a, pt_b = len(en_words(a.get("prompt_text", ""))), len(en_words(b.get("prompt_text", "")))
+        if pt_a and abs(pt_b - pt_a) > max(5, pt_a * 0.2):
+            WARNINGS.append(f"{tag}: 딸린 글(prompt_text) 단어 수 {pt_a} → {pt_b} (±20%, 최소 ±5 초과)")
         same("given", "주어진 글 유무", bool)
         same("prompt_text", "요약문 유무", bool)
         nb_a, nb_b = len(BLANK.findall(a.get("passage", ""))), len(BLANK.findall(b.get("passage", "")))
@@ -563,6 +627,12 @@ def stats(exam: dict) -> None:
             extra = f"짝 {len(it['match_left'])} : {len(it.get('match_right', []))}"
         if "vocab_entries" in it:
             extra = f"단어 {len(it['vocab_entries'])}개"
+        if it.get("prompt_text"):
+            extra += f"  딸린 글 {len(en_words(it['prompt_text']))}단어"
+        if it.get("numbered_rows"):
+            extra += "  줄마다 번호"
+        if it.get("type") == "other":
+            extra += f"  지원 범위 밖({it.get('other_label', '?')})"
         kind = f"{it.get('type', '?')}/{it.get('subtype', '?')}"
         print(f"{it.get('id', '?'):>3}  {kind:<26} {passage_words(it) or '-':>5} {paragraph_count(it) or '-':>4} {avg:>7}  "
               f"{o}{extra}{'  [' + g + ']' if g else ''}")

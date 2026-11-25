@@ -6,7 +6,7 @@
 
 - 스킬 하나: `skills/anyquiz-english/` (Agent Skills 표준, agentskills.io)
 - 입력: 텍스트 PDF 또는 텍스트. 출력: 마크다운 문제지 + 정답·해설, 요청 시 DOCX
-- 유형: cloze(빈칸), vocab(단어집), reading(독해). 모드: format(형식 모사), passage(본문 기반), vocab
+- 유형: cloze(빈칸), vocab(단어집), reading(독해). 그 밖의 유형은 other(지원 범위 밖, 표시하고 만든다). 모드: format(형식 모사), passage(본문 기반), vocab
 - 플러그인이 아니라 스킬이다. 플러그인 승격 조건은 PLAN.md 6단계. 조건이 생기기 전에는 `.claude-plugin/`을 만들지 않는다.
 
 ## 확정된 설계 결정 (바꾸려면 사용자에게 먼저 묻는다)
@@ -17,7 +17,7 @@
 4. passage 모드: 올린 지문은 고쳐 쓰지 않는다. 문항에 필요한 가공(빈칸, 밑줄)은 결과물에서 한다.
 5. 단어집은 입력 텍스트에서 추출 / 입력 없이 생성 둘 다 지원.
 6. 생성은 반드시 분석 → 생성 → 검증 3단계. 한 번에 하지 않는다.
-7. 스캔 PDF, 듣기, 영어 외 과목은 지원하지 않는다고 말하고 멈춘다.
+7. 스캔 PDF, 듣기, 영어 외 과목은 지원하지 않는다고 말하고 멈춘다. 지원 유형 밖의 문항(어법, 서술형 등)이 섞인 문제지는 멈추지도 빼지도 않는다. `type: "other"`로 만들고 출력 맨 위에 번호를 적어 직접 확인하라고 알린다(2026-11-25).
 8. JSON은 스키마 v2 하나를 두 역할로 쓴다. `source`(원본 분석)는 형식 정보만 담고 원본에 없는 것을 지어 넣지 않는다. `generated`(생성물)에만 정답·해설·오답 이유를 요구하고 작성 규칙 검사를 적용한다.
 9. 정답지가 없는 원본도 받는다(`answer_key: none`). 새 문제를 만드는 데 원본 정답은 필요 없다.
 10. 빈칸 문제는 보기로 나눈다. 보기가 단어면 `cloze/single-blank`, 구·절이면 `reading/blank-inference`.
@@ -36,7 +36,7 @@
 
 | 축 | 측정 | 목표 |
 | :- | :- | :- |
-| 형식 충실도 | `validate_schema.py --compare` | 100% |
+| 형식 충실도 | `validate_schema.py --compare` 통과. 지원 범위 밖(`other`) 문항 수는 따로 적는다 | 100% |
 | 정답 정확성 | 독립 풀이 일치 + 사람 표본 | 95% 이상 |
 | 내용 충실도 | LLM 루브릭 1~5점 | 평균 4.0 이상 |
 | 신규성 | `overlap.py` 6-gram | 15% 미만 |
@@ -50,13 +50,15 @@
 - `references/question-types.md`의 "나쁜 예"는 실제 실패 사례에서만 추가한다. 상상해서 쓰지 않는다. 스킬 파일에는 평가 세트의 문제지·문항 번호를 적지 않는다(어느 사례가 어느 문항인지는 `eval/results/`에만 적는다).
 - 평가 세트(`eval/sources/`)의 문제지는 사용자가 직접 만들어 제공한다. Claude가 만들지 않는다(생성기 편향이 기준에 들어간다).
 - `eval/holdout/`은 측정 전용이다. 스킬을 고칠 때 이 폴더의 문제지와 그 생성물을 읽지 않는다. 결과는 점수와 실패 건수만 기록하고, 실패 사례를 스킬 규칙이나 `question-types.md`에 넣지 않는다.
-- `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx). `-I`에서는 같은 폴더 import가 안 된다. 스크립트끼리 코드를 나눠 쓸 때는 `export_docx.py`처럼 `importlib`로 경로를 지정해 불러온다. 출력 구조는 `render_md.py`의 `build_blocks()` 한 곳에서 만든다.
+- `scripts/`는 `python3 -I`로 실행해도 동작해야 한다(외부 의존: pdfplumber, pypdf, jsonschema, python-docx). `-I`에서는 같은 폴더 import가 안 된다. 스크립트끼리 코드를 나눠 쓸 때는 `export_docx.py`처럼 `importlib`로 경로를 지정해 불러온다. 출력 구조는 `render_md.py`의 `build_blocks()` 한 곳에서 만든다. 문제지에 찍히는 번호를 정하는 `numbering()`은 `render_md.py`와 `validate_schema.py`에 같은 내용으로 둘 다 있다. 고칠 때 함께 고친다.
 - 새 유형이나 필드를 더할 때는 네 곳을 함께 고친다: `schema.md`의 "유형별 담는 법", `exam.schema.json`, `validate_schema.py`, `render_md.py`. 한 곳만 고치면 04번의 짝짓기처럼 문서대로 담았는데 출력이 망가진다.
 - 스크립트 수정 후 `eval/samples/`로 회귀 확인:
   ```
   python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-source.json eval/samples/sample-generated.json
   python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-en-group.source.json eval/samples/sample-en-group.json
   python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-nostem.source.json eval/samples/sample-nostem.json
+  python3 skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-mixed.source.json eval/samples/sample-mixed.json
+  python3 skills/anyquiz-english/scripts/render_md.py eval/samples/sample-mixed.json
   python3 skills/anyquiz-english/scripts/render_md.py eval/samples/sample-generated.json
   python3 skills/anyquiz-english/scripts/overlap.py eval/samples/sample-source.txt eval/samples/sample-generated.json
   ```

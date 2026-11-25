@@ -35,6 +35,11 @@
       "type": "string",
       "minLength": 1
     },
+    "subtitle": {
+      "type": "string",
+      "minLength": 1,
+      "description": "제목 아래 둘째 줄"
+    },
     "mode": {
       "enum": [
         "format",
@@ -157,7 +162,8 @@
           "enum": [
             "cloze",
             "vocab",
-            "reading"
+            "reading",
+            "other"
           ]
         },
         "subtype": {
@@ -179,7 +185,9 @@
             "order",
             "insertion",
             "irrelevant",
-            "summary"
+            "summary",
+            "choice",
+            "open-response"
           ]
         },
         "level": {
@@ -372,6 +380,15 @@
               }
             }
           }
+        },
+        "other_label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "type이 other일 때 원본 유형의 이름 (예: 어법, 서술형 영작)"
+        },
+        "numbered_rows": {
+          "type": "boolean",
+          "description": "표의 줄(또는 빈칸)마다 문항 번호가 붙는 형태"
         }
       }
     }
