@@ -5,7 +5,7 @@ license: MIT
 compatibility: Designed for Claude Code, claude.ai, and other Agent Skills clients. PDF input requires Python 3 with pdfplumber (scripts/extract.py).
 metadata:
   author: donghyun
-  version: "0.3.1"
+  version: "0.3.2"
   subject: english
 ---
 

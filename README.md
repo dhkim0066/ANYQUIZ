@@ -24,6 +24,15 @@
 
 ## 설치
 
+### Claude (웹·데스크톱 앱)
+
+Python을 설치할 필요가 없습니다. 스크립트는 Claude 쪽 실행 공간에서 돕니다.
+
+1. [릴리스](https://github.com/dhkim0066/ANYQUIZ/releases)에서 `anyquiz-english-x.y.z.zip`을 받습니다. 압축은 풀지 않습니다.
+2. **설정 > 기능**에서 "코드 실행 및 파일 생성"이 켜져 있는지 확인합니다.
+3. 스킬 화면에서 zip을 올립니다. 화면에 따라 **사용자 정의 > 스킬**에서 `+` → "스킬 만들기" → "스킬 업로드"이거나, **플러그인** 화면의 **Skills** 탭에서 "추가"입니다.
+4. 목록에 `anyquiz-english`가 "추가됨"으로 보이면 끝입니다. 새 대화에서 문제지를 붙이고 말하면 됩니다.
+
 ### Claude Code
 
 ```bash
@@ -47,12 +56,6 @@ mklink /J .claude\skills\anyquiz-english C:\경로\ANYQUIZ\skills\anyquiz-englis
 
 세션에서 `/anyquiz-english`를 치거나 "이 문제지와 같은 형식으로 새 문제지 만들어 줘"처럼 말하면 됩니다.
 
-### claude.ai
-
-1. `skills/anyquiz-english` 폴더를 zip으로 묶습니다. zip을 열었을 때 맨 위에 `anyquiz-english` 폴더가 보여야 합니다.
-2. **Settings > Capabilities**에서 코드 실행과 파일 만들기가 켜져 있는지 확인합니다.
-3. **Customize > Skills**에서 `+` → `Create skill` → `Upload a skill`로 zip을 올립니다.
-
 ### Codex
 
 저장소의 `.agents/skills/` 아래에 스킬 폴더를 둡니다.
@@ -62,7 +65,7 @@ mkdir -p .agents/skills
 cp -r /경로/ANYQUIZ/skills/anyquiz-english .agents/skills/
 ```
 
-> 개발과 측정은 모두 Claude Code(Windows)에서 했습니다. claude.ai와 Codex에서는 아직 설치해 보지 않았습니다.
+> 개발과 측정은 Claude Code(Windows)에서 했습니다. Claude 앱에서는 zip을 올려 문제지 한 장을 끝까지 만들어 본 것이 한 번입니다(PDF 입력, Word 출력). Codex에서는 아직 설치해 보지 않았습니다.
 
 ## 쓰는 법
 

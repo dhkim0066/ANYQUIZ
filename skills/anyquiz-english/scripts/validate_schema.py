@@ -242,8 +242,15 @@ def structure_errors(exam: dict) -> list[str]:
         if st == "single-blank" and passage:
             if not BLANK.search(passage):
                 errs.append(f"{tag}: 지문에 빈칸(____)이 없음")
-            if it.get("passage_group") and f"({disp[it['id']][0]})" not in passage:
-                errs.append(f"{tag}: 묶음 지문의 빈칸에는 문항 번호를 붙임. 지문에 '({disp[it['id']][0]})'가 없음")
+            if it.get("passage_group"):
+                # 묶음 지문에 빈칸이 여럿이면 어느 빈칸이 어느 문항인지 번호로 가린다.
+                # 빈칸이 하나뿐이면 번호가 없어도 된다(원본에 번호가 없으면 없는 대로 둔다).
+                want = disp[it["id"]][0]
+                numbered = [int(x) for x in re.findall(r"\((\d+)\)\s*_{3,}", passage)]
+                if len(BLANK.findall(passage)) > 1 and want not in numbered:
+                    errs.append(f"{tag}: 묶음 지문에 빈칸이 여럿이면 빈칸마다 문항 번호를 붙임. 지문에 '({want}) ____'가 없음")
+                elif numbered and want not in numbered:
+                    errs.append(f"{tag}: 지문의 빈칸 번호 {numbered}가 이 문항이 찍히는 번호 {want}와 다름")
         if st == "multi-blank" and passage and "(A)" not in passage:
             errs.append(f"{tag}: multi-blank 지문에 (A) 자리가 없음")
         if st == "word-bank":
