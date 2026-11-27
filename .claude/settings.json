@@ -1,34 +1,46 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 skills/anyquiz-english/scripts/*)",
-      "Bash(python3 -I skills/anyquiz-english/scripts/*)",
-      "Bash(agentskills validate *)",
-      "Bash(git status*)",
-      "Bash(git diff*)",
-      "Bash(git log*)"
+      "Bash(python3 skills/anyquiz-english/scripts/extract.py *)",
+      "Bash(python3 skills/anyquiz-english/scripts/validate_schema.py *)",
+      "Bash(python3 skills/anyquiz-english/scripts/render_md.py *)",
+      "Bash(python3 skills/anyquiz-english/scripts/export_docx.py *)",
+      "Bash(python3 skills/anyquiz-english/scripts/overlap.py *)",
+      "Bash(python3 skills/anyquiz-english/scripts/pick_names.py *)",
+      "Bash(python3 -I skills/anyquiz-english/scripts/extract.py *)",
+      "Bash(python3 -I skills/anyquiz-english/scripts/validate_schema.py *)",
+      "Bash(python3 -I skills/anyquiz-english/scripts/render_md.py *)",
+      "Bash(python3 -I skills/anyquiz-english/scripts/export_docx.py *)",
+      "Bash(python3 -I skills/anyquiz-english/scripts/overlap.py *)",
+      "Bash(python3 -I skills/anyquiz-english/scripts/pick_names.py *)",
+      "Bash(agentskills validate skills/anyquiz-english)"
     ],
     "deny": [
       "Bash(rm -rf eval/sources*)",
-      "Bash(git push --force*)"
+      "Bash(rm -rf eval/holdout*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f)",
+      "Bash(git push * -f *)"
     ]
   },
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
-        "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-sources.sh" }]
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-sources.sh" }]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-skill.sh", "timeout": 60 }]
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-skill.sh", "timeout": 60 }]
       }
     ],
     "Stop": [
       {
-        "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh" }]
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-reminder.sh" }]
       }
     ]
   }

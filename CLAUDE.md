@@ -70,11 +70,13 @@
 
 | 훅 | 하는 일 |
 | :- | :- |
-| PreToolUse Edit\|Write | `eval/sources/` 수정 차단. 기준 데이터는 사람만 고친다 |
+| PreToolUse Edit\|Write | `eval/sources/`와 `eval/holdout/` 수정 차단. 기준 데이터는 사람만 고친다 |
 | PostToolUse Edit\|Write | 스킬 파일이 바뀌면 `agentskills validate` + 스크립트 컴파일 + 샘플 회귀. 실패하면 되돌아옴 |
 | Stop | 스킬이 바뀌었는데 `eval/results/`에 기록이 없으면 알림 |
 
 훅이 거부하면 우회하지 말고 원인을 고친다. 훅 자체를 고쳐야 하면 사용자에게 먼저 말한다.
+
+허용 규칙(`permissions.allow`)은 스크립트 여섯 개의 이름을 하나씩 적는다. `scripts/*`처럼 뭉뚱그리지 않는다(`*`는 `../`도 받는다). 훅은 입력을 `sys.stdin.buffer`로 읽는다(Windows 한국어 로캘에서 `sys.stdin`은 UTF-8을 못 읽어 훅이 조용히 건너뛴다).
 
 훅 스크립트는 bash + Python만 쓴다(jq 없음). Windows에서는 Git Bash와 `python`이 PATH에 있어야 한다. 데스크톱 앱·VS Code 확장·터미널 어디서든 로컬 세션이면 같은 설정으로 동작한다.
 

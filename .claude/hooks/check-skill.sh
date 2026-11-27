@@ -4,7 +4,7 @@
 . "$(dirname "$0")/_py.sh"
 [ -z "$PY" ] && exit 0
 input=$(cat)
-path=$(printf '%s' "$input" | $PY -c 'import sys,json;print(json.load(sys.stdin).get("tool_input",{}).get("file_path",""))' 2>/dev/null)
+path=$(printf '%s' "$input" | $PY -c 'import sys,json;print(json.loads(sys.stdin.buffer.read()).get("tool_input",{}).get("file_path","").encode("ascii","backslashreplace").decode())' 2>/dev/null)
 case "$path" in *skills/anyquiz-english/*|*skills\\anyquiz-english\\*) ;; *) exit 0 ;; esac
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); cd "$root" || exit 0
 fail=0
@@ -17,6 +17,8 @@ done
 out=$($PY skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-source.json eval/samples/sample-generated.json 2>&1 \
       && $PY skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-en-group.source.json eval/samples/sample-en-group.json 2>&1 \
       && $PY skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-nostem.source.json eval/samples/sample-nostem.json 2>&1 \
+      && $PY skills/anyquiz-english/scripts/validate_schema.py --compare eval/samples/sample-mixed.source.json eval/samples/sample-mixed.json 2>&1 \
+      && $PY skills/anyquiz-english/scripts/render_md.py eval/samples/sample-mixed.json 2>&1 >/dev/null \
       && $PY skills/anyquiz-english/scripts/render_md.py eval/samples/sample-generated.json 2>&1 >/dev/null) \
   || { echo "회귀 테스트 실패 (eval/samples):"; echo "$out"; fail=1; } >&2
 lines=$(wc -l < skills/anyquiz-english/SKILL.md | tr -d ' ')
