@@ -37,8 +37,12 @@ Python을 설치할 필요가 없습니다. 스크립트는 Claude 쪽 실행 �
 
 ```bash
 git clone https://github.com/dhkim0066/ANYQUIZ.git
-pip install pdfplumber pypdf jsonschema python-docx
+pip install -U "pdfplumber>=0.11.9" "pypdf>=6.21.4" jsonschema python-docx
 ```
+
+버전을 적은 까닭이 있습니다. PDF를 읽는 라이브러리(pdfplumber가 쓰는 pdfminer.six)의 옛 버전에는 조작된 PDF를 열면 임의 코드가 실행되는 결함(CVE-2025-64512)이 있습니다. 예전에 설치해 둔 것이 있으면 위 명령으로 올려 주세요. 남에게 받은 PDF를 넣을 때 특히 그렇습니다.
+
+이 저장소 폴더 자체를 Claude Code로 열면 `.claude/settings.json`의 훅과 권한 규칙이 함께 적용됩니다. 스킬을 고치는 사람을 위한 것이고, 스킬을 쓰기만 할 때는 필요 없습니다. 폴더를 신뢰하기 전에 `.claude/` 안을 한 번 읽어 보세요.
 
 쓰려는 프로젝트 폴더에서 스킬 폴더를 연결합니다.
 
