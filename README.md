@@ -1,9 +1,9 @@
 <h1 align="center">ANYQUIZ</h1>
 
 <p align="center">
-  <b>영어 문제지 생성 Skill for KOR</b><br/>
-  내 영어 문제지를 넣으면, 같은 형식의 새 문제지가 나옵니다.<br/>
-  교사·강사·학습자가 자기 자료로 변형 문제를 만드는 Agent Skill
+  <b>영어 문제지를 넣으면 같은 형식의 새 문제지를 만드는 스킬</b><br/>
+  Agent Skill for Claude: turn your English test paper into a new one in the same format<br/>
+  <sub>교사·강사·학습자가 자기 자료로 변형 문제를 만드는 용도입니다</sub>
 </p>
 
 <p align="center">
