@@ -57,7 +57,7 @@
 
 Python을 설치할 필요가 없습니다. 스크립트는 Claude 쪽 실행 공간에서 돕니다.
 
-1. [릴리스](https://github.com/dhkim0066/ANYQUIZ/releases)에서 `anyquiz-english-x.y.z.zip`을 받습니다. 압축은 풀지 않습니다.
+1. [릴리스](https://github.com/dhkim0066/ANYQUIZ/releases)에서 `ANYQUIZ-x.y.z.zip`을 받습니다. 압축은 풀지 않습니다. 저장소 첫 화면의 **Code → Download ZIP**은 저장소 전체라서 스킬로 올라가지 않습니다.
 2. **설정 > 기능**에서 "코드 실행 및 파일 생성"이 켜져 있는지 확인합니다.
 3. **플러그인** 화면에서 오른쪽 위의 **추가** → **플러그인 업로드**를 누르고 zip을 넣습니다.
 4. 목록에 `anyquiz-english`가 "추가됨"으로 보이면 끝입니다. 새 대화에서 문제지를 붙이고 말하면 됩니다.
