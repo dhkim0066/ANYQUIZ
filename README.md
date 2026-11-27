@@ -218,7 +218,7 @@ flowchart LR
 | [`skills/anyquiz-english/`](skills/anyquiz-english/) | 스킬 본체. `SKILL.md`, 작성 규칙(`references/`), 스크립트(`scripts/`) |
 | [`eval/sources/`](eval/sources/) | 평가용 문제지 아홉 장 (직접 만든 것) |
 | [`eval/holdout/`](eval/holdout/) | 측정 전용 문제지 네 장. 스킬을 고칠 때는 보지 않습니다 |
-| [`eval/results/`](eval/results/) | 라운드별 기록과 기준선 |
+| [`eval/results/`](eval/results/) | 측정 기록. 지금 버전의 근거 여섯 개와 개발 과정(`archive/`). [안내문](eval/results/README.md)부터 보세요 |
 | [`PLAN.md`](PLAN.md) | 단계별 계획과 남은 일 |
 
 스크립트는 스킬이 알아서 부릅니다. 직접 써 보려면 각 스크립트에 `--help`를 붙여 실행하세요.
